@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="Oo5Yy4GL4xZVnlCMCwsLDO">
+<head data-page-node-id="Vzn0hTz6jIbCHsUzKFFDaR">
+<meta charset="UTF-8" data-page-node-id="yjAeYDXwYq55aPmSbKHR15">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="Iqk0fGGHhgyzIRSk5lQra6">
+<title>STM32 光控灯 · 实现路线与决策复盘</title>
+<style>
+  :root{
+    --bg:#f5f7fa;
+    --panel:#ffffff;
+    --panel-2:#fbfcfe;
+    --line:#e2e8f0;
+    --line-strong:#cbd5e1;
+    --ink:#1e293b;
+    --ink-2:#475569;
+    --ink-3:#94a3b8;
+    --blue:#2563eb;
+    --blue-bg:#eff6ff;
+    --teal:#0d9488;
+    --teal-bg:#f0fdfa;
+    --amber:#b45309;
+    --amber-bg:#fffbeb;
+    --red:#b91c1c;
+    --red-bg:#fef2f2;
+    --purple:#7c3aed;
+    --purple-bg:#f5f3ff;
+    --mono:"Cascadia Mono",Consolas,"JetBrains Mono","Courier New",monospace;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--blue);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  /* ---------- 顶部 ---------- */
+  header.hero{
+    background:linear-gradient(160deg,#1e3a8a 0%,#1d4ed8 55%,#0f766e 100%);
+    color:#fff;padding:38px 24px 32px;
+  }
+  .hero-in{max-width:1080px;margin:0 auto;}
+  .hero h1{margin:0 0 8px;font-size:27px;letter-spacing:.4px;font-weight:650;}
+  .hero p{margin:0;color:#dbeafe;font-size:14.5px;max-width:760px;}
+  .hero .tags{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero .tags span{
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);
+    padding:3px 11px;border-radius:20px;font-size:12.5px;font-family:var(--mono);
+  }
+
+  /* ---------- 导航 ---------- */
+  nav.toc{
+    position:sticky;top:0;z-index:50;background:rgba(255,255,255,.93);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .toc-in{
+    max-width:1080px;margin:0 auto;padding:9px 24px;
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  }
+  .toc-in::-webkit-scrollbar{display:none;}
+  .toc-in a{
+    flex:0 0 auto;font-size:13px;color:var(--ink-2);padding:5px 12px;
+    border-radius:7px;border:1px solid transparent;white-space:nowrap;
+  }
+  .toc-in a:hover{background:var(--blue-bg);color:var(--blue);border-color:#bfdbfe;text-decoration:none;}
+  .toc-in a.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+  /* ---------- 主体 ---------- */
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 90px;}
+  section{margin-bottom:44px;scroll-margin-top:64px;}
+  h2{
+    font-size:20px;margin:0 0 4px;padding-left:12px;
+    border-left:4px solid var(--blue);line-height:1.35;font-weight:650;
+  }
+  h2 .sub{display:block;font-size:13px;color:var(--ink-3);font-weight:400;margin-top:3px;padding-left:1px;}
+  h3{font-size:16.5px;margin:26px 0 8px;font-weight:650;}
+  h4{font-size:14.5px;margin:18px 0 6px;font-weight:650;color:var(--ink-2);}
+  p{margin:9px 0;}
+  ul,ol{margin:9px 0;padding-left:22px;}
+  li{margin:4px 0;}
+  code{
+    font-family:var(--mono);font-size:12.9px;background:#eef2f7;
+    padding:1px 5px;border-radius:4px;color:#0f172a;
+  }
+  strong{font-weight:650;}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;margin:14px 0;box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  @media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+  /* ---------- 表格 ---------- */
+  .tw{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel);}
+  table{border-collapse:collapse;width:100%;font-size:13.6px;min-width:560px;}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#f1f5f9;font-weight:650;font-size:13px;color:var(--ink-2);white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#f8fafc;}
+  td code{font-size:12.4px;}
+
+  /* ---------- 标签 ---------- */
+  .pill{
+    display:inline-block;font-size:11.5px;padding:1.5px 8px;border-radius:20px;
+    font-family:var(--mono);white-space:nowrap;line-height:1.6;
+  }
+  .p-use{background:#dcfce7;color:#15803d;}
+  .p-keep{background:#fee2e2;color:#b91c1c;}
+  .p-res{background:#fef3c7;color:#b45309;}
+  .p-free{background:#f1f5f9;color:#64748b;}
+  .p-blue{background:var(--blue-bg);color:var(--blue);}
+  .p-teal{background:var(--teal-bg);color:var(--teal);}
+  .p-purple{background:var(--purple-bg);color:var(--purple);}
+
+  /* ---------- 代码 ---------- */
+  .codebox{margin:12px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fbfcfe;}
+  .codebox .cbar{
+    background:#eef2f7;border-bottom:1px solid var(--line);
+    padding:6px 12px;font-size:12.3px;font-family:var(--mono);color:var(--ink-2);
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+  }
+  .codebox .cbar em{font-style:normal;color:var(--ink-3);font-size:11.5px;}
+  pre{margin:0;padding:13px 15px;overflow-x:auto;font-family:var(--mono);font-size:12.7px;line-height:1.62;color:#111827;}
+  pre .c{color:#64748b;}      /* comment */
+  pre .k{color:#7c3aed;}      /* keyword */
+  pre .n{color:#0369a1;}      /* number/const */
+  pre .f{color:#b45309;}      /* function */
+  pre .s{color:#0d9488;}      /* string */
+  pre .hi{background:#fef08a;border-radius:3px;padding:0 2px;}  /* highlight */
+
+  /* ---------- 提示块 ---------- */
+  .note{border-radius:10px;padding:13px 16px;margin:13px 0;border:1px solid;font-size:14px;}
+  .note .t{font-weight:650;display:block;margin-bottom:3px;}
+  .note.info{background:var(--blue-bg);border-color:#bfdbfe;}
+  .note.info .t{color:#1d4ed8;}
+  .note.warn{background:var(--amber-bg);border-color:#fde68a;}
+  .note.warn .t{color:var(--amber);}
+  .note.err{background:var(--red-bg);border-color:#fecaca;}
+  .note.err .t{color:var(--red);}
+  .note.ok{background:var(--teal-bg);border-color:#99f6e4;}
+  .note.ok .t{color:var(--teal);}
+
+  /* ---------- 决策卡 ---------- */
+  .decision{
+    border:1px solid var(--line);border-left:4px solid var(--blue);
+    border-radius:10px;background:var(--panel);margin:14px 0;overflow:hidden;
+  }
+  .decision > .dhead{
+    padding:13px 17px;cursor:pointer;display:flex;justify-content:space-between;
+    align-items:center;gap:12px;user-select:none;
+  }
+  .decision > .dhead:hover{background:#f8fafc;}
+  .decision .q{font-weight:650;font-size:15px;}
+  .decision .q small{display:block;font-weight:400;color:var(--ink-3);font-size:12.5px;margin-top:2px;}
+  .decision .arrow{color:var(--ink-3);transition:transform .22s;font-size:13px;flex:0 0 auto;}
+  .decision.open .arrow{transform:rotate(90deg);}
+  .decision .dbody{display:none;padding:0 17px 16px;border-top:1px solid var(--line);padding-top:13px;}
+  .decision.open .dbody{display:block;}
+
+  .ans{
+    background:var(--teal-bg);border:1px solid #99f6e4;border-radius:8px;
+    padding:9px 13px;margin:10px 0;font-size:14px;
+  }
+  .ans b{color:#0f766e;}
+  .reject{
+    background:#fafafa;border:1px dashed var(--line-strong);border-radius:8px;
+    padding:9px 13px;margin:10px 0;font-size:13.6px;color:var(--ink-2);
+  }
+  .reject .rt{font-weight:650;color:var(--ink);font-size:13px;display:block;margin-bottom:2px;}
+
+  /* ---------- 时间线 ---------- */
+  .tl{position:relative;padding-left:30px;margin-top:16px;}
+  .tl::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:linear-gradient(#bfdbfe,#99f6e4);border-radius:2px;}
+  .tl-item{position:relative;margin-bottom:22px;}
+  .tl-item::before{
+    content:"";position:absolute;left:-26px;top:6px;width:12px;height:12px;border-radius:50%;
+    background:#fff;border:3px solid var(--blue);
+  }
+  .tl-item.done::before{border-color:var(--teal);background:var(--teal);}
+  .tl-item h4{margin:0 0 4px;font-size:15.5px;color:var(--ink);}
+  .tl-item h4 code{font-size:12.4px;background:#eef2f7;}
+  .tl-meta{font-size:12.4px;color:var(--ink-3);margin-bottom:6px;font-family:var(--mono);}
+
+  /* ---------- 计算器 ---------- */
+  .calc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0;}
+  .calc-row{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;}
+  .fld{display:flex;flex-direction:column;gap:4px;}
+  .fld label{font-size:12.6px;color:var(--ink-2);font-weight:600;}
+  .fld input,.fld select{
+    font-family:var(--mono);font-size:13.5px;padding:6px 9px;border:1px solid var(--line-strong);
+    border-radius:7px;width:130px;background:#fff;color:var(--ink);
+  }
+  .fld input:focus,.fld select:focus{outline:2px solid #bfdbfe;border-color:var(--blue);}
+  .calc-out{
+    background:#0f172a;color:#e2e8f0;border-radius:9px;padding:14px 16px;
+    font-family:var(--mono);font-size:13px;line-height:1.9;white-space:pre-wrap;word-break:break-word;
+  }
+  .calc-out b{color:#5eead4;font-weight:600;}
+  .calc-out .dim{color:#94a3b8;}
+
+  /* ---------- 测验 ---------- */
+  .quiz{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 20px 18px;margin:14px 0;}
+  .q-item{padding:15px 0;border-bottom:1px dashed var(--line);}
+  .q-item:last-child{border-bottom:none;}
+  .q-t{font-weight:650;margin-bottom:9px;font-size:14.6px;}
+  .opt{
+    display:block;border:1px solid var(--line);border-radius:8px;padding:8px 13px;
+    margin:6px 0;cursor:pointer;font-size:13.8px;transition:.15s;background:#fbfcfe;
+  }
+  .opt:hover{border-color:var(--blue);background:var(--blue-bg);}
+  .opt.right{border-color:#34d399;background:#ecfdf5;}
+  .opt.wrong{border-color:#f87171;background:#fef2f2;}
+  .expl{display:none;margin-top:7px;font-size:13.4px;color:var(--ink-2);background:#f8fafc;border-left:3px solid var(--line-strong);padding:8px 12px;border-radius:0 7px 7px 0;}
+  .expl.show{display:block;}
+
+  footer{
+    border-top:1px solid var(--line);background:#fff;padding:22px 24px;
+    text-align:center;color:var(--ink-3);font-size:12.8px;
+  }
+</style>
+</head>
+<body data-page-node-id="FQXHDLrHEQmyKKfEqaCRL4">
+
+<header class="hero" data-page-node-id="OLWiDlX92PiVXGO12TCPnw">
+  <div class="hero-in" data-page-node-id="Oz4495GcQeEELB5HsObQE3">
+    <h1 data-page-node-id="9oipnqHnGfzr6BpcPVKtWz">STM32 光控灯 · 实现路线与决策复盘</h1>
+    <p data-page-node-id="pt30O0rTUwANEYdwFVJnUz">这个页面回答一个问题：<strong data-page-node-id="vxifGvP3o6XXEBeHq2ohV2">为什么代码最后长成这个样子</strong>。从需求出发，一步步拆到「用哪个定时器、走哪个 ADC 通道、为什么是这个引脚」，包括中间撞过的每一个坑。</p>
+    <div class="tags" data-page-node-id="iVl4hu9BgTVzFHysOrTTAU">
+      <span data-page-node-id="kqgsMutowOQfXFnek9t3i2">STM32F103C8T6</span><span data-page-node-id="PJn4twtS8W4ca63E9b1lNg">标准外设库 SPL</span><span data-page-node-id="e60SaYR4Ta6sLBqVuyQ4rS">Keil MDK 5</span>
+      <span data-page-node-id="uNaKOy0fAe5CTkKFleMfJ3">ADC + DMA</span><span data-page-node-id="bpZoi53osA45dHNlNNtLYr">TIM2 PWM</span><span data-page-node-id="RDP66FGhef4Y81KKdj0QPc">TIM3 节拍</span><span data-page-node-id="pAbKWHetBZQva2kcaVkJOw">USART1</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" data-page-node-id="XQfqE2NbO020jEOZeHYvwU">
+  <div class="toc-in" data-page-node-id="JCc3XULl5Fhrhrg3h9h5mC">
+    <a href="#s0" data-page-node-id="4iSmpQc6OA9FJvutetp4HQ">0 · 全局信号链</a>
+    <a href="#s1" data-page-node-id="esNb5bd1ldh8RTIqRfT8r4">1 · 选外设的四步法</a>
+    <a href="#s2" data-page-node-id="7Qq6LYvuWDyh7dEf82CVqZ">2 · 定时器怎么选</a>
+    <a href="#s3" data-page-node-id="Hkak0Y9GjFQ5WT3uBmMQkn">3 · ADC 通道怎么选</a>
+    <a href="#s4" data-page-node-id="qZKy1Hzou7M5sqsMvfoqB7">4 · 串口 / OLED / LED</a>
+    <a href="#s5" data-page-node-id="Ei9mJYIFKfKA6qjgEx7txq">5 · 分步实现时间线</a>
+    <a href="#s6" data-page-node-id="E3qv3yBLqvvwZVkFvDoeBL">6 · 踩过的 7 个坑</a>
+    <a href="#s7" data-page-node-id="PhoeeTo1bh4piAfjwVOTEt">7 · 参数是怎么算的</a>
+    <a href="#s8" data-page-node-id="zWJM4OaCPBuBgWIevdjGdV">8 · 自测</a>
+    <a href="#s9" data-page-node-id="PgUuNj4utrE0sxZAeIuW4t">9 · 占用登记表</a>
+  </div>
+</nav>
+
+<main data-page-node-id="44cGXp8y0fKHNqTX5P65cX">
+
+<!-- ================= 0 ================= -->
+<section id="s0" data-page-node-id="JKqk3p3MHAp657Wl51rid2">
+  <h2 data-page-node-id="9D6a7ZNYCUDVDia36FLStj">0 · 全局信号链<span class="sub" data-page-node-id="9Q3Np3XuugddaHbRJsmGNB">先把"要做什么"变成"要什么信号"，后面所有选择都从这里推导</span></h2>
+
+  <p data-page-node-id="AblAXWaHTFTTRUTtNdGGN9">原始需求只有一句话：<strong data-page-node-id="qHdytoCBoicOh1xWqOBvhM">环境越暗，灯越亮，并且电脑能远程控制</strong>。这句话里没有任何"定时器"或"ADC"，得先翻译成信号。</p>
+
+  <div class="card" data-page-node-id="53fvvDbplb8JvK23AyDjCc">
+    <svg viewBox="0 0 680 200" width="100%" style="max-width:680px;display:block;margin:0 auto;" data-page-node-id="tCrsJHlbj48rmwZVJfBNtG">
+      <!-- 第一层：物理量 -->
+      <text x="16" y="24" font-family="monospace" font-size="11" fill="#94a3b8" data-page-node-id="EluM60fFLwUschoPvS5Y04">物理量</text>
+      <rect x="16" y="32" width="104" height="40" rx="8" fill="#f0fdfa" stroke="#5eead4" data-page-node-id="x3HniDLNyN8GJXOYF9EQCe"/>
+      <text x="68" y="57" text-anchor="middle" font-size="12.5" fill="#0f766e" font-family="sans-serif" data-page-node-id="7Vj2mHIFbX71ETC8n0XYbg">环境光照</text>
+
+      <rect x="288" y="32" width="104" height="40" rx="8" fill="#f0fdfa" stroke="#5eead4" data-page-node-id="wwQ2zHTd5S1uDyh7R6Qwxx"/>
+      <text x="340" y="57" text-anchor="middle" font-size="12.5" fill="#0f766e" font-family="sans-serif" data-page-node-id="MeGjxnM7RXbFuthzTeUu7i">LED 亮度</text>
+
+      <rect x="560" y="32" width="104" height="40" rx="8" fill="#f0fdfa" stroke="#5eead4" data-page-node-id="eFqtm87bw5U7tmbtpXqHwq"/>
+      <text x="612" y="57" text-anchor="middle" font-size="12.5" fill="#0f766e" font-family="sans-serif" data-page-node-id="nYH5etTELGQRra5lHTzEU7">PC 指令</text>
+
+      <!-- 第二层：电信号 -->
+      <text x="16" y="98" font-family="monospace" font-size="11" fill="#94a3b8" data-page-node-id="HNUsPMq2KpHkwk0WyYHz4u">电信号</text>
+      <rect x="16" y="106" width="104" height="40" rx="8" fill="#eff6ff" stroke="#bfdbfe" data-page-node-id="L1UEL4Xn47wwGEntKUAcfQ"/>
+      <text x="68" y="126" text-anchor="middle" font-size="11.5" fill="#1d4ed8" font-family="monospace" data-page-node-id="KjtjbpSXIa63kkp83XwPrA">0~3.3 V 模拟</text>
+      <text x="68" y="140" text-anchor="middle" font-size="10.5" fill="#60a5fa" font-family="monospace" data-page-node-id="RBOjdAf6OxybFFD5UPJtVa">分压后电压</text>
+
+      <rect x="288" y="106" width="104" height="40" rx="8" fill="#eff6ff" stroke="#bfdbfe" data-page-node-id="U0x6XTqEzkkudHFcm5S76e"/>
+      <text x="340" y="126" text-anchor="middle" font-size="11.5" fill="#1d4ed8" font-family="monospace" data-page-node-id="XGpFUg60HEDQGfCChjEVhF">1 kHz 方波</text>
+      <text x="340" y="140" text-anchor="middle" font-size="10.5" fill="#60a5fa" font-family="monospace" data-page-node-id="00pIkBWwuB4apaY4BVN9bG">占空比可调</text>
+
+      <rect x="560" y="106" width="104" height="40" rx="8" fill="#eff6ff" stroke="#bfdbfe" data-page-node-id="nIfBoC506rYFysQ0CpCtPi"/>
+      <text x="612" y="126" text-anchor="middle" font-size="11.5" fill="#1d4ed8" font-family="monospace" data-page-node-id="daZ3XoILGpy4ifNuLVGrI9">115200 bps</text>
+      <text x="612" y="140" text-anchor="middle" font-size="10.5" fill="#60a5fa" font-family="monospace" data-page-node-id="3yTvD2P5SNW3P5i1eyPJMY">异步串行</text>
+
+      <!-- 第三层：外设 -->
+      <text x="16" y="172" font-family="monospace" font-size="11" fill="#94a3b8" data-page-node-id="lDt6N717EfEAY3MlabmOMD">该用谁</text>
+      <rect x="16" y="178" width="104" height="0" rx="0" data-page-node-id="F5PXKkmdoXGBDlnSPla084"/>
+      <text x="68" y="186" text-anchor="middle" font-size="12" fill="#7c3aed" font-family="monospace" data-page-node-id="uUm6IahFIuB8WlJ6ZT6YJJ">ADC1_IN0</text>
+      <text x="340" y="186" text-anchor="middle" font-size="12" fill="#7c3aed" font-family="monospace" data-page-node-id="7GjFWAKTRtSqRba3takAq2">TIM2_CH2</text>
+      <text x="612" y="186" text-anchor="middle" font-size="12" fill="#7c3aed" font-family="monospace" data-page-node-id="5NjHihZxbcCw7LVhjOCuve">USART1</text>
+
+      <!-- 箭头 -->
+      <defs data-page-node-id="oN0acNvPHRFVgbNE5fqU7W">
+        <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" data-page-node-id="Lu2Gfok4M1EHDS9Ccvg07Y">
+          <path d="M0,0 L6,3 L0,6 z" fill="#94a3b8" data-page-node-id="0uhtfRutWjpVzVBk9mHCsU"/>
+        </marker>
+      </defs>
+      <line x1="68" y1="72" x2="68" y2="104" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar)" data-page-node-id="LdSr0mB0Y17DpZxgf3LxLB"/>
+      <line x1="68" y1="146" x2="68" y2="174" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar)" data-page-node-id="7i2aHQI4kgDREPUBr566HI"/>
+      <line x1="340" y1="72" x2="340" y2="104" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar)" data-page-node-id="G7cpLdyRIIWMm0obveK579"/>
+      <line x1="340" y1="146" x2="340" y2="174" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar)" data-page-node-id="f1FcHFTkuIIBP703CgLfvT"/>
+      <line x1="612" y1="72" x2="612" y2="104" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar)" data-page-node-id="HYaccUHrfwYLzr7V3lvUb4"/>
+      <line x1="612" y1="146" x2="612" y2="174" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar)" data-page-node-id="ae4T2u1YlyD9fDLa71HCix"/>
+    </svg>
+  </div>
+
+  <p data-page-node-id="ROTr9c2aqcmACXDuu4BonM">三路信号，最后在 MCU 里合成一条闭环：</p>
+
+  <div class="codebox" data-page-node-id="ljPO6EDZdRsKxLeCEySpzg">
+    <div class="cbar" data-page-node-id="iOcQt8YQrC9SopevagSBqA"><span data-page-node-id="Ghj2a0qKdK0LiFK9WYPNuv">数据流</span><em data-page-node-id="Q4MN6d7kL3bZe1F0DF8NQi">主循环里一个都不阻塞</em></div>
+<pre data-page-node-id="cx2uFI9qvAZwq3M9p7qyWu"><span class="c" data-page-node-id="EVN51hwUPGU5Sgz4D6sccq">光敏分压电压  ──▶ ADC1 采样 ──▶ DMA1_CH1 循环搬运 ──▶ 主循环取平均值</span>
+                                                          │
+                          ┌───────────────────────────────┘
+                          ▼
+              AUTO 模式：查表映射成亮度百分比
+              PC   模式：等串口命令给百分比
+                          │
+                          ▼
+                   目标占空比 target
+                          │  每 10 ms 走 2%（渐变）
+                          ▼
+                   当前占空比 duty ──▶ PWM_SetDuty() ──▶ TIM2_CH2/PA1 ──▶ LED</pre>
+  </div>
+
+  <div class="note info" data-page-node-id="fzib3AHvPiG3UDQDb7j263">
+    <span class="t" data-page-node-id="Dw43FBiT5MHCwOePx2j3P4">这张图是后面所有决策的地基</span>
+    每一个箭头都对应一个外设，每一个外设都要占资源。所谓"选型"，本质就是<strong data-page-node-id="ad1n8dMu3FfnkxheOJJkFU">给这 5 个方框各分配一套硬件，且互不打架</strong>。
+  </div>
+</section>
+
+<!-- ================= 1 ================= -->
+<section id="s1" data-page-node-id="4nEdOrhj32V9DkNzf7pma1">
+  <h2 data-page-node-id="CjsKBL5eHngxtvrFni9bhN">1 · 选外设的四步法<span class="sub" data-page-node-id="hzqiiDXmMltWFGigy3w4Xn">这不是玄学，是一套可重复执行的流程</span></h2>
+
+  <p data-page-node-id="GN5rlNzkM2unaoHXx8Bt4X">初学者最容易犯的错是"看到教程用 PA1 就抄 PA1"。正确做法是走下面四步 —— 每一步都能落到纸面上：</p>
+
+  <div class="grid2" data-page-node-id="qR5zsjqwyIzeThdFxAi1Kj">
+    <div class="card" style="border-left:4px solid var(--blue);" data-page-node-id="C5VLW8OCYJpby49D3wOn1w">
+      <h4 style="margin-top:0;" data-page-node-id="jmzceWFWpFG02dGLVhGiuU">① 需求 → 信号类型</h4>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="fP7fjWMrTmxohNSOrUmmVP">问自己：我要的是<strong data-page-node-id="UZerUKGZWmd6qWoFD60hd2">模拟量</strong>、<strong data-page-node-id="tkoZqgJE59IX0zxyHlVUph">频率/占空比可调的方波</strong>、还是<strong data-page-node-id="tvkHd18WkIuAWiCXCGVUW3">串行数据流</strong>？</p>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="PrFxr9bXkRRmMiVnQZ3c54">答案直接锁定外设<strong data-page-node-id="kjg9aWFHiRmRWYByQXJ4hQ">类别</strong>：模拟量 → ADC；方波 → 定时器比较输出；串行 → USART/SPI/I2C。</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--teal);" data-page-node-id="OxYBCHVUdB9whEQh4pN6lF">
+      <h4 style="margin-top:0;" data-page-node-id="X5MBbV55iWTtm0ifi1WN60">② 查资源地图</h4>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="6t2lqLsLlvlwOq4Td0Ce19">翻数据手册的<strong data-page-node-id="pKoJz7JfvyhHc0UgiwUpST">引脚定义表</strong>和参考手册的<strong data-page-node-id="KceJazgzpx6KuCHKsIF7O4">外设章节</strong>，列出这个型号到底有几个、各自挂在哪条总线、有哪些通道、默认映射在哪个引脚。</p>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="qVoYCgKGbb8zfQKbtN1FMw">F103C8T6 是 48 脚小容量型号，外设数量比大容量型号少，可选项本来就不多。</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--amber);" data-page-node-id="WApbSHifA4N9lI9jq635bq">
+      <h4 style="margin-top:0;" data-page-node-id="Turn2aDxO2YVxAM4eUBFQR">③ 划掉"不可动"的引脚</h4>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="EmmoFUn70YAQmxktcyzD7x">先排除，再挑选。固定不可动的有：</p>
+      <ul style="font-size:13.8px;margin:4px 0;" data-page-node-id="Px4pwAq146xRABYHvF7mcn">
+        <li data-page-node-id="YWF0HLDXBuDb8hvLKEgmCm"><code data-page-node-id="Jg1KqDbUPMfjss9GloCvaH">PA13 / PA14</code> → SWD 调试口，改成普通 IO 会导致芯片锁死</li>
+        <li data-page-node-id="LBvMZzvgCGDDvaSSB8PiZN"><code data-page-node-id="5E1EZSD2u0ppmksCPEMIzY">PD0 / PD1</code> → 8 MHz 晶振</li>
+        <li data-page-node-id="gTEMPvOr2qGvWXERFV1YiB"><code data-page-node-id="RDnJpNb8DlTPllZCPad5QX">NRST / BOOT0 / VBAT</code></li>
+        <li data-page-node-id="ENNaNTJOf2cQtQRkAwd4qJ"><code data-page-node-id="s3Zg0B0R6LSyQFWCzSCCgj">PC13</code> → 板上已经焊了 LED</li>
+        <li data-page-node-id="4aylwZ97Qu5x9USjDP2J72"><code data-page-node-id="mnueIzWL1T8VVQ0tsIrZDp">PA15 / PB3 / PB4</code> → 默认被 JTAG 占用，要用得先关 JTAG</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:4px solid var(--purple);" data-page-node-id="qFMPOetH7HiKA3fAGGFkpq">
+      <h4 style="margin-top:0;" data-page-node-id="IuFJxL6jH3Btu4vrUWUxkx">④ 建"占用登记表"防冲突</h4>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="yRf3msmkIrZkbDEsp87jjs">每确定一个外设，就登记 <strong data-page-node-id="UoidmmhZaVKSvEGelFttlP">外设名 + 引脚 + 归属模块</strong>。新模块开工前先查表，撞了就换。</p>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="LlGwkxmzDyyTH8vHoFTSb0">这套登记的最终形态就是第 9 节那张表 —— 它同时也是原工程出事的根因：<strong data-page-node-id="YbweNF9AbCPA2ic0ZHXZnS">没有人维护这张表</strong>。</p>
+    </div>
+  </div>
+
+  <div class="note warn" data-page-node-id="4UVeh6Nos6eH2L6G7iQoCK">
+    <span class="t" data-page-node-id="5SwSRxptA0tcXHxG5PhrEN">第 ④ 步为什么最重要</span>
+    原工程 4 个致命冲突，全都源于同一个失误：<strong data-page-node-id="HJvCjI0QVjcXfPZh13CExQ">两个模块各自独立地"挑了一个方便的外设"，谁也不知道对方也在用</strong>。<code data-page-node-id="ZaFBc604JIADgzrV3itrOL">Timer.c</code> 挑了 TIM2，<code data-page-node-id="nKSd4jnlZd3Eah30RJcQvh">PWM.c</code> 也挑了 TIM2；<code data-page-node-id="EqsIPgKwB9Zt3PdPE28VxF">LED.c</code> 挑了 PA1/PA2，<code data-page-node-id="tbxVvtpTqDg0AEXSFCf7Do">PWM.c</code> 也要 PA1。代码单独看都没问题，合起来必然崩。
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section id="s2" data-page-node-id="JuG9B0jnSAE3Ri7orPptTw">
+  <h2 data-page-node-id="0cQatcOtEAiPMqLBfqM1Ks">2 · 定时器怎么选<span class="sub" data-page-node-id="goaL4PFImfAGq5QkfCr4GQ">PWM 给了 TIM2，系统节拍给了 TIM3 —— 这是怎么定的</span></h2>
+
+  <h3 data-page-node-id="QZhCwac86BtuEzkmpzgjQc">2.1 先看 F103C8T6 手上有几个定时器</h3>
+
+  <div class="tw" data-page-node-id="ezbhtBjKALeTIrZ1KzNjsq">
+    <table data-page-node-id="r99BkvT2xyE6hXqGzh1nOF">
+      <thead data-page-node-id="27LyGdAFVup1gOps5HYZkS"><tr data-page-node-id="OIMjMuYLasTg84LzkbG7Sj"><th data-page-node-id="WGtDswfi3ZN87oqdxBU87j">定时器</th><th data-page-node-id="eA798HQrK2YhoXQyEtGY9d">类型</th><th data-page-node-id="EEjjAB8V2xGmYG6C1zbWSB">挂在哪条总线</th><th data-page-node-id="W5ojztny768AirHwARd5ZT">计数位宽</th><th data-page-node-id="LFt1YRFqNdzkKmA0tmY1Ex">可用通道与默认引脚</th><th data-page-node-id="IdXhGy45t3w9KO5VIBKvkZ">本项目去向</th></tr></thead>
+      <tbody data-page-node-id="tJtQXjALj8zJASHDLP8PbU">
+        <tr data-page-node-id="2lp92qgTHrEjzYnyowP5Iq">
+          <td data-page-node-id="WgxvO4vgILiWKGequnm9W6"><code data-page-node-id="j5jcbIjLWCal48gqSOYqJJ">TIM1</code></td><td data-page-node-id="S4NjcA2SkmSmHsfxyemViH">高级</td><td data-page-node-id="6k9Z2ADrHfy0iVXOPVR7Xa">APB2（72 MHz）</td><td data-page-node-id="1qGKKExtoUWlJ5SegHHyWi">16 位</td>
+          <td data-page-node-id="OznGeIk6Xm0O92Pvx7leGs">CH1→PA8 · CH2→PA9 · CH3→PA10 · CH4→PA11</td>
+          <td data-page-node-id="ViWjrip1NGW4UbMYZnIbcQ"><span class="pill p-free" data-page-node-id="4O2vH7WVGvldyNi8klD78v">空闲</span> 但没有引脚可用（PA9/10 给了串口）</td>
+        </tr>
+        <tr data-page-node-id="MydRbXHpYmcM8EKSMaXqEv">
+          <td data-page-node-id="7OyVxhjKiC2FQUVlcXF2ic"><code data-page-node-id="mv0CPMiVSK8dd8XZnRaYRo">TIM2</code></td><td data-page-node-id="VD0LMjghDdM9H6tSSWbTrB">通用</td><td data-page-node-id="IhklAb3i94Z9so8bjVonwX">APB1（36 MHz，倍频后 72 MHz）</td><td data-page-node-id="1I5niYUThb6sZcLlPZNA3m">16 位</td>
+          <td data-page-node-id="J9DO5bbXm5NOFA7wwyCKf2">CH1→PA0 · <strong data-page-node-id="hzD9EaxSgOOtRdEiMpQNnA">CH2→PA1</strong> · CH3→PA2 · CH4→PA3　（重映射后还可用 PA15/PB3/PB10/PB11）</td>
+          <td data-page-node-id="vwYj3k6Dmgm6k4fuTv944y"><span class="pill p-use" data-page-node-id="Ex8q1TBHhEfl1FBC6N7kTO">PWM 输出</span></td>
+        </tr>
+        <tr data-page-node-id="ZPYLQdIgljCHOqecc8NPJl">
+          <td data-page-node-id="cfzM0FCslz8NH7Yl3xhhBZ"><code data-page-node-id="tGbPccW8Z2RYGYXM4fVQIV">TIM3</code></td><td data-page-node-id="Ar3jgAPOAz1HzMtGEF0YQT">通用</td><td data-page-node-id="Df95cZPCZg3U0lRqR9CiNY">APB1</td><td data-page-node-id="Re9VFDEuZLjIqn4vWkovT0">16 位</td>
+          <td data-page-node-id="m2tfEmo8jXpVC0g8Ogz2Jy">CH1→PA6 · CH2→PA7 · CH3→PB0 · CH4→PB1　（重映射后 PB4/PB5/PB0/PB1）</td>
+          <td data-page-node-id="uh77L4FiSfe49yYg1193eI"><span class="pill p-use" data-page-node-id="zu3ZMEmtDEbOiVLi4T5hya">1 ms 系统节拍</span></td>
+        </tr>
+        <tr data-page-node-id="GGy5A3N4Oge4N0cmo3TpjG">
+          <td data-page-node-id="MmdYDBkhop4YZvcna3BVy2"><code data-page-node-id="XFfRhdl5wbEV8SYUCIzCa3">TIM4</code></td><td data-page-node-id="juH0ARx5jdwLZbVqFQ3J1U">通用</td><td data-page-node-id="Xq1XDTCOlJbmpMCtF24WBc">APB1</td><td data-page-node-id="jwdd6CenQHE0gjTqHrQgvw">16 位</td>
+          <td data-page-node-id="xAHeXCAkgf1SrIPdfeKUTu">CH1→PB6 · CH2→PB7 · CH3→PB8 · CH4→PB9</td>
+          <td data-page-node-id="hAtyuCeuubnCYltFdxEJIR"><span class="pill p-free" data-page-node-id="z7FHuMCYBDqARVsjqgHq3h">空闲</span>（PB6/PB7 给了 OLED）</td>
+        </tr>
+        <tr data-page-node-id="HCADBwvYW9JzeRfweODPAE">
+          <td data-page-node-id="mI9FMrsqqwkcx5Ok7lUVBE"><code data-page-node-id="kplHQQ1MhDmBS2Wr8P2LQB">SysTick</code></td><td data-page-node-id="NW3DjKVk3yyLS6OIoHPFKA">内核</td><td data-page-node-id="BIYIFcxkDkF1YFu0pgX4hn">—</td><td data-page-node-id="mj0Sw0CirAMU4hmTU9ZzL8">24 位递减</td>
+          <td data-page-node-id="PkbaK8yk0uDaUhukHEJWog">无输出引脚，只能产生中断</td>
+          <td data-page-node-id="MBI47fTOSTeO38LxG3J0eL"><span class="pill p-res" data-page-node-id="tc4J3yvDDB8g4ArjtgOZFH">被 Delay 用</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note info" data-page-node-id="H9GmD8udi45Q0HgPuRsK1k">
+    <span class="t" data-page-node-id="siKBe0DoGOUgEDaQ3Ces5U">一个容易忽略的点：APB1 上的定时器时钟其实是 72 MHz</span>
+    TIM2/3/4 挂在 APB1（最高 36 MHz），但 STM32 有个规则：<strong data-page-node-id="4Mk4xxbNrMPnlc0LB39oaD">当 APB 预分频系数不为 1 时，定时器时钟自动倍频 ×2</strong>。所以 TimxCLK = 36 × 2 = <strong data-page-node-id="HeP874KQAlrSJSIWAqwKES">72 MHz</strong>，和系统时钟一样。这就是为什么 PSC 写 72 就能得到 1 MHz 计数 —— 不是 36/72。
+  </div>
+
+  <h3 data-page-node-id="lF14S6r0Dz87pqNSeRtlHe">2.2 决策一：PWM 为什么落在 TIM2</h3>
+
+  <div class="decision open" data-page-node-id="qvvx86y5ItPfdc82R9Aetc">
+    <div class="dhead" onclick="this.parentNode.classList.toggle('open')" data-page-node-id="DKAiKWUoVZHXxtdPTlcJUM">
+      <div class="q" data-page-node-id="Tq8Ot78C0DQqlyRwepMCB0">要一路可调占空比的方波，TIM1~TIM4 都能做，为什么选 TIM2？
+        <small data-page-node-id="0OrShyD9n4CRw9XenooHYb">顺便定下：占空比分辨率 1000 级，频率 1 kHz</small>
+      </div>
+      <span class="arrow" data-page-node-id="mKk3qGF5rAFSx4lnKDL0HC">▶</span>
+    </div>
+    <div class="dbody" data-page-node-id="Nzbuy8KnOJdlfOFViMGbar">
+      <p data-page-node-id="ARWlRSloz0qk4sL0a3Lpg8">筛选过程是<strong data-page-node-id="VQkpZ5LURFjp8KFDme5Gqm">排除法</strong>，一步步缩到只有一个答案：</p>
+      <ol data-page-node-id="GrLumMniZonx1OzPmb3hE3">
+        <li data-page-node-id="XHqfLPUjwYHnhCTAV7JLV1"><strong data-page-node-id="Nwsa3dcrHRjA0p8DDHsxMR">TIM1 出局</strong>：它的 CH2/CH3 默认在 PA9/PA10 —— 那正是我要留给串口的两个脚。要用 TIM1 就得开重映射或换脚，白白增加复杂度。</li>
+        <li data-page-node-id="V9pyOJElVEle65UzxIo25h"><strong data-page-node-id="NGKmyXJofcnqZj3EZTQWMy">TIM3 出局</strong>：我打算让它做系统节拍（下面 2.3 会讲为什么），一个定时器同时干"定时中断"和"输出波形"两件事，配置会互相干扰，调试时很难分清是谁的问题。</li>
+        <li data-page-node-id="LE1DAhHacsXhHK4Yeag2Qg"><strong data-page-node-id="2aM6ETp1tYGeXNQgE75AnV">TIM4 出局</strong>：CH1/CH2 在 PB6/PB7 —— 已经给了 OLED 的软件 I2C。CH3/CH4 在 PB8/PB9 倒还空着，但那就得换个引脚、换个通道，没有额外收益。</li>
+        <li data-page-node-id="ijVCnRAKkZi2GCrvGtbANs"><strong data-page-node-id="NNJQPmZMOPSnGieZCbsS6r">TIM2 胜出</strong>：CH2 的默认引脚就是 <strong data-page-node-id="ARHc3b7gvYXX3aCRWBuODW">PA1</strong>，<strong data-page-node-id="99AfSxtXypGhIVPWbbj48t">不需要重映射</strong>；PA1 紧挨着 PA0（光敏），接线时两块模块可以挨着插，飞线短、看着不乱。</li>
+      </ol>
+      <div class="ans" data-page-node-id="sZcUJ6yAGhyeLkXVgjFHC6"><b data-page-node-id="rDtHzLLB6Z3sg37DHoglEQ">结论：</b>TIM2_CH2 → PA1。理由排序是 <b data-page-node-id="EQV4j1Bogh4F9QiYla5o5s">①引脚现成不冲突 → ②与节拍定时器分离 → ③布线集中</b>，而不是"教程都这么写"。</div>
+      <div class="reject" data-page-node-id="Txk990QIeoyBewli68IKMw">
+        <span class="rt" data-page-node-id="de9pbuJdTLCnHsPeHRs7hl">反过来说：如果当时选了 TIM3 出 PWM</span>
+        那就得用 PA6/PA7 或 PB0/PB1。PA6/PA7 虽然空着，但意味着节拍要改用 TIM2 或 TIM4，两个定时器的"职责"整体错位 —— 改一次要动两个模块的代码。尽早在纸上定死"谁干什么"，能省掉后面这种连锁修改。
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="FDHeKzdEyxRBKPlQLjEcXg">2.3 决策二：系统节拍为什么用 TIM3，而不是 SysTick</h3>
+
+  <div class="decision" data-page-node-id="NLBKpQLzDHSBCvxrtQ0Hn9">
+    <div class="dhead" onclick="this.parentNode.classList.toggle('open')" data-page-node-id="5Pj4RCrHVEyuagRxRnjDz1">
+      <div class="q" data-page-node-id="WIVUjqKqqr1CA1TvLWABhQ">产生"每毫秒加一"的心跳，最简单的是 SysTick，为什么改用 TIM3？
+        <small data-page-node-id="3PGGUS02lpo0d8GjYm9Vn5">这个决定直接影响了整个程序能不能"不阻塞"</small>
+      </div>
+      <span class="arrow" data-page-node-id="GGY0CGiAR46DbRc0oJWKyQ">▶</span>
+    </div>
+    <div class="dbody" data-page-node-id="zAknROlB9PcSEKfjHxdDO8">
+      <p data-page-node-id="ESGfWfdoy2agboy7rmlXae"><strong data-page-node-id="5mFRfg0IbR6MRuAcrF5Aw5">先厘清节拍是干什么的。</strong>程序里到处需要"每隔 N 毫秒做一次"：渐变 10 ms、上报 200 ms、刷屏 500 ms、心跳 500 ms。要做到这些，必须有一个能回答"现在过了多久"的时钟源。</p>
+
+      <h4 data-page-node-id="AlvHI8FL5X3f7FGHAVgI9c">三个候选方案对比</h4>
+      <div class="tw" data-page-node-id="91wQF4JS4XoYdVo3ZzPQnB">
+        <table data-page-node-id="wFDTduDMOgWUCF7S0suikJ">
+          <thead data-page-node-id="i6Lzo93xdEj23431GAP5kB"><tr data-page-node-id="XcaJHCbX8bz49Lr9Cica6q"><th data-page-node-id="Nc4zKHd2TNhvFnqS8sDIrV">方案</th><th data-page-node-id="UNkMHmSpDsR7JLtaGbJUSB">优点</th><th data-page-node-id="Xeoq6cPX3cjuAoaivJZkbC">致命问题</th></tr></thead>
+          <tbody data-page-node-id="tmiiCNLGPoU6RN1dICOFA9">
+            <tr data-page-node-id="9pdeBntAmqSXVoih4xmrlk">
+              <td data-page-node-id="zKGubulugOLlKID4aT1ecL"><code data-page-node-id="Pv6ISD3C8f49yR4DqJ9RHX">delay_ms()</code> 空转</td>
+              <td data-page-node-id="9AuZvyz8quMy6UmKvU5iJM">最好懂</td>
+              <td data-page-node-id="yKxOpUT7aBj9bbJQmtvdJb"><strong data-page-node-id="U5NJNwIiK47hD2NnpRbJ0g">阻塞。</strong>等 500 ms 期间串口一个字节都收不到、OLED 不刷新、看门狗不喂 —— 原工程就栽在这</td>
+            </tr>
+            <tr data-page-node-id="cGzJdhyfAK5isJi28efwzP">
+              <td data-page-node-id="wMvCTO1nbDuXyC9Dko12KZ"><code data-page-node-id="NR9Dze3s76BqeqTXJ9Ndkm">SysTick</code></td>
+              <td data-page-node-id="EWrKo3YELdu0J0ZorPByVL">内核自带，不占外设</td>
+              <td data-page-node-id="Wx7kFZwzzAU7IjNCe1VzLc">标准库的 <code data-page-node-id="RNpbtpuvWocoj2HZ58l9xJ">Delay.c</code> 已经在用它做微秒/毫秒延时。两处都用会造成<strong data-page-node-id="7Mxpn5m4gi5zZIiY1CJCgi">重新配置时延基准被改写</strong>，而且 SysTick 中断优先级最低，容易被别的中断推迟，计时不准</td>
+            </tr>
+            <tr data-page-node-id="U0I4eDBJK7LXB85V93dv6j">
+              <td data-page-node-id="zthRTPZHFlGMk7RqgJQsyC"><code data-page-node-id="r3uTGjx7t0DbZFtVQrvy3g">TIM3</code> 独立中断</td>
+              <td data-page-node-id="SkzGHyVIa5n0FjTpsBOnqS">与 Delay 完全隔离；中断优先级可自由设定（本项目设抢占 2）；以后要改成"1 kHz 触发 ADC 采样"也顺手</td>
+              <td data-page-node-id="bSXOpoagZUOft7lyMVmzs7">占用一个通用定时器（本来就空着）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ans" data-page-node-id="lXVKdYYK7GQC01yE0gi7xb"><b data-page-node-id="bDldhmjAAWCNCWB3KVxFuK">结论：</b>用 TIM3 产生 1 ms 中断。判据是<b data-page-node-id="P56qcMEGGQOCmk9xhaiPE7">"不与已有功能共享资源"</b> —— 既然 SysTick 已经被延时函数占了，就不要再挤进去。</div>
+
+      <p data-page-node-id="CMzV3y4C9l2yJzPsA5ykcP">实现只要两个东西：一个中断里自增的计数器，和一个判断"时间到没到"的函数。后者是整个非阻塞架构的关键，注意它<strong data-page-node-id="KF13slTrBB2bG9chnK3tw6">不用减法以外的任何运算</strong>：</p>
+
+      <div class="codebox" data-page-node-id="q05E1obGTeGkyVg3aB43Rp">
+        <div class="cbar" data-page-node-id="XttSos1rxdMfS4xBUTsFtC"><span data-page-node-id="rQyS3TsqhaCkOAe3jHZBms">System/Timer.c</span><em data-page-node-id="KbjPZtjj8KLCxtKAJ7LKGR">节拍与非阻塞周期判断</em></div>
+<pre data-page-node-id="PBEV9hFaC0hhHke24mb0Ft"><span class="k" data-page-node-id="AFqV5OuXH5O2BDwg7vic6h">static</span> <span class="k" data-page-node-id="pflSU8eIWLYvYKfxlgvBri">volatile</span> uint32_t s_tickMs = <span class="n" data-page-node-id="6PXP62A5Ix5UKq15Ue1ODv">0</span>;
+
+<span class="k" data-page-node-id="BmC9BR7fzusNuFSvobDAMP">void</span> <span class="f" data-page-node-id="7w7sCCyWq1bv9Vs4NbXJCL">TIM3_IRQHandler</span>(<span class="k" data-page-node-id="OBgKiuscUiPwdwsq3Pc5Lr">void</span>)
+{
+    <span class="k" data-page-node-id="cxM8qihn1AnUbYfFMch3BL">if</span> (TIM_GetITStatus(TIM3, TIM_IT_Update) == SET)
+    {
+        s_tickMs++;
+        TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
+    }
+}
+
+<span class="c" data-page-node-id="M49ukBCfIfn31ARR76jKFs">/* 到点返回 1，并把参考点前移；用无符号减法，计数器溢出也能正确工作 */</span>
+uint8_t <span class="f" data-page-node-id="5ARwGqddvIhcXUDaUTPgrS">Timer_IsElapsed</span>(uint32_t *pLast, uint32_t interval)
+{
+    uint32_t now = s_tickMs;
+
+    <span class="k" data-page-node-id="GNG6qxL48wTIC0aGQSZoVx">if</span> ((now - *pLast) &gt;= interval)
+    {
+        *pLast = now;
+        <span class="k" data-page-node-id="h1Iq6RKDjNV7xb93WlHLZJ">return</span> <span class="n" data-page-node-id="a6kmwrdge4AyAnNQ3OI0AA">1</span>;
+    }
+    <span class="k" data-page-node-id="8EZfqtGO77lHthbhCc2xWT">return</span> <span class="n" data-page-node-id="kjMXnTR5BF3tXMBPdLOld2">0</span>;
+}</pre>
+      </div>
+
+      <div class="note warn" data-page-node-id="79YMwwC6BT5QEaVdv6ncEO">
+        <span class="t" data-page-node-id="j8BflaNiHvkxnTzcEV1DC0">这里有个容易写错的地方</span>
+        不要写成 <code data-page-node-id="9fhy7OorQu0pqRNVNj8Uft">if (now &gt;= *pLast + interval)</code>。当 <code data-page-node-id="Adk2oMvMVyHXeUPTlBX90N">s_tickMs</code> 累加到 <code data-page-node-id="NLpgvJNBMST7ntwpeaD4Wj">0xFFFFFFFF</code> 翻转回 0 时，<code data-page-node-id="bGyTF8rEKBWZP9JLcr4Ief">*pLast + interval</code> 会溢出，判断永久失效。<code data-page-node-id="dBtuszq5UYnR1Mz2kbZKtg">now - *pLast</code> 这种<strong data-page-node-id="1vBTzdOhc4OcIDufAsegMV">无符号相减</strong>的写法即使跨越翻转点也能算出正确的差值（约 49.7 天才翻一次，但正确写法不花额外代价，没有理由不写对）。
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="6GsGvEeDLfSeazJHQSVF3i">2.4 决策三：PWM 频率和分辨率怎么定</h3>
+
+  <div class="decision" data-page-node-id="VOkNRdJYJKPRHbMGvvT6bg">
+    <div class="dhead" onclick="this.parentNode.classList.toggle('open')" data-page-node-id="vQkOfmYytqXuP4GjdI19GC">
+      <div class="q" data-page-node-id="o9U40exixh5IkN83mD96x8">为什么是 1 kHz / 1000 级，而不是 20 kHz / 100 级？
+        <small data-page-node-id="2nFolmO2eoweBWgixltUIr">频率和分辨率是一对相互制约的参数</small>
+      </div>
+      <span class="arrow" data-page-node-id="eZdn57zTLrWiat5jSCL6aE">▶</span>
+    </div>
+    <div class="dbody" data-page-node-id="LCcyYshCzL1niiR1VOmp3v">
+      <p data-page-node-id="6JzxGDvHVi6JkJoBoZTCKo"><strong data-page-node-id="AreSrjEEsowOzjpDLiKwDD">核心矛盾：</strong>定时器计数器时钟固定为 1 MHz 时，<code data-page-node-id="9Fn9dubgGUGrj4jkWJr383">频率 × 级数 = 1 MHz</code> 是个恒等式。想要高频就得牺牲分辨率，想要细分辨率就得降低频率。</p>
+
+      <div class="tw" data-page-node-id="y3eGvuSKEpElY7nh1WxnXz">
+        <table data-page-node-id="HQgHAbicUMgTDV5kr0GWPv">
+          <thead data-page-node-id="YsnhYXi1OZtRG8wpgoF9Qc"><tr data-page-node-id="8RVEOqMwHPlqd34r0Abnle"><th data-page-node-id="TxzSIIKKNIoCcQP2wvDrwc">方案</th><th data-page-node-id="7NYFIYssT7iANT6ZvlCFJz">频率</th><th data-page-node-id="H21zYoJLH5IF8CLxRTRFOq">级数</th><th data-page-node-id="Da9FX46ZYniLjontXHrJXS">人眼观感</th><th data-page-node-id="7wxyvhuFnb4DRvQYLdgl7v">调光手感</th></tr></thead>
+          <tbody data-page-node-id="KJ1WsLWIetDGXmeZULPYNm">
+            <tr data-page-node-id="ipCuRQBr7FNGpcGG03Fv5O"><td data-page-node-id="yDhnnOrgHYLLPK6W5fM0ek">粗</td><td data-page-node-id="J8dvawCU3rigKDYXAlvrFH">10 kHz</td><td data-page-node-id="THltY1slvLx7b4YQBxDjJI">100</td><td data-page-node-id="qdXvX1tawT5mWdiLHfF957">不闪</td><td data-page-node-id="cULC4xbkEXeMjNOoWgor8s">每一步跳 1%，暗部变化突兀</td></tr>
+            <tr style="background:#f0fdfa;" data-page-node-id="68ECjEXywBcE66AEfBc2Sj"><td data-page-node-id="Zy3PAHzzntD6nywa0Y5wJi"><strong data-page-node-id="rHkrkDcmHL5Ai8Rzn6KNFy">本项目</strong></td><td data-page-node-id="GNhCheh8BlMG9gbviGMX0e"><strong data-page-node-id="yCzlIdVUDd6tSeLgfUQqc6">1 kHz</strong></td><td data-page-node-id="2VGoDJLISy2jruuyWCIrBb"><strong data-page-node-id="2p2m3Gr6FJP6q731cqI1D2">1000</strong></td><td data-page-node-id="on6OmTh95etQRgyBeKHLkh">不闪（远高于 200 Hz 临界）</td><td data-page-node-id="3uO1YBLkE3mYDBHDFIIFXE">0.1% 一步，渐变丝滑</td></tr>
+            <tr data-page-node-id="Pox38YoJFey7n2H1rtvKCD"><td data-page-node-id="UlSMatwn4UQ0EyLvBOBXrG">细</td><td data-page-node-id="wRRnyAFcc5VosXQBxyDF64">100 Hz</td><td data-page-node-id="2bUVFAjBtRMuUmSuFBFDH9">10000</td><td data-page-node-id="s4v0mLWh1vSq0xuCJ21i0X"><strong data-page-node-id="3PrZOEOw3xvTAQL0hJjOPb">能看到闪烁</strong></td><td data-page-node-id="eTNbNpA884ZbrcNhXEQapa">极细，但人眼先受不了</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ans" data-page-node-id="pDn53YfGBQPDbIcWBWfi6I"><b data-page-node-id="xr8EXCvP8FnuEuLPf6SzCx">结论：</b>1 kHz / 1000 级。判据是 <b data-page-node-id="HPh7wwRJXWyNq2h0J7xddv">①频率必须远高于人眼闪烁临界（约 200 Hz）→ ②在满足①的前提下把分辨率拉到最大</b>。</div>
+
+      <p data-page-node-id="GrqgLXCeTBVijQVffMW61L">另外 1000 这个数字还有个工程上的好处：<strong data-page-node-id="eNqRmdaP6tocLG27oganLy">占空比百分比和寄存器值可以一一对应</strong>，不需要浮点运算。</p>
+
+      <div class="codebox" data-page-node-id="tXDWEqO2Zz3etSrFHyPees">
+        <div class="cbar" data-page-node-id="zztlc285A7c9akR31qgbe3"><span data-page-node-id="WbBSMKBGxFZzvSgQJYQY6q">System/PWM.h</span><em data-page-node-id="kr9qSxcXOBGq3cqwSBlfu6">用宏把百分比换算藏起来</em></div>
+<pre data-page-node-id="ZyCIGVujsTvWUTShXiAQqb"><span class="k" data-page-node-id="qizjh6FmAXcpgvR7gvA44i">#define</span> PWM_PERIOD              <span class="n" data-page-node-id="4bJdnnQCH8Sh3l8mdE6OHe">1000</span>    <span class="c" data-page-node-id="2B0ztBnD1YOMaNi2JG83xM">/* 1 kHz, 1000 duty steps */</span>
+<span class="k" data-page-node-id="rZYWtawfFEWa0ES9O6y9Pz">#define</span> PWM_PERCENT_TO_DUTY(p)  ((uint16_t)((p) * (PWM_PERIOD / <span class="n" data-page-node-id="aOTqLkoFG2F1kUT97q9miI">100</span>)))
+
+<span class="c" data-page-node-id="3P3euBWyd3wC8Bq1gPSeqZ">/* 上层的代码永远只跟"百分比"打交道： */</span>
+<span class="f" data-page-node-id="6KETqfFieRP8wxBdEIfG2o">PWM_SetDuty</span>(<span class="f" data-page-node-id="nCX7kEZgjr2Fw1DQvmJCvJ">PWM_PERCENT_TO_DUTY</span>(<span class="n" data-page-node-id="VGKxHZOCropPXbSgQ4YGpn">42</span>));   <span class="c" data-page-node-id="b1AzdWSTgfGDnqDHEIORNp">/* -> 420 */</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="0NecMIsqOKjaiHv1cZyAC8">2.5 PWM 初始化代码逐行读</h3>
+
+  <div class="codebox" data-page-node-id="UNuPO3NIivYNeAJfCO6wBk">
+    <div class="cbar" data-page-node-id="p8eHCwnWDZ4kwEauVrDgQH"><span data-page-node-id="6DGgxkASFHDx0OWS70MAwK">System/PWM.c</span><em data-page-node-id="H5IG1nCtTOocZyKu1GJCy1">TIM2_CH2 → PA1</em></div>
+<pre data-page-node-id="aEileJYwwCg7fMG6EthllQ"><span class="k" data-page-node-id="8uaQTFLD2NjDmhmOPs1o2H">void</span> <span class="f" data-page-node-id="WGKAoiQ5vOHMgvmAwz8I2F">PWM_Init</span>(<span class="k" data-page-node-id="feaBNF310AZMTwUf6mkzGW">void</span>)
+{
+    <span class="c" data-page-node-id="z8YXaoVlph9qx48dnAWRvy">/* ① 开时钟：TIM2 在 APB1，GPIOA 在 APB2 —— 两条总线的开关是分开的 */</span>
+    <span class="f" data-page-node-id="mSu294JxdV3vLokyY1bJyC">RCC_APB1PeriphClockCmd</span>(RCC_APB1Periph_TIM2, ENABLE);
+    <span class="f" data-page-node-id="v7uHJ6t6CAuWAD0NjSMxbk">RCC_APB2PeriphClockCmd</span>(RCC_APB2Periph_GPIOA, ENABLE);
+
+    <span class="c" data-page-node-id="hfWHW2Rkp358UUAOF9TQmQ">/* ② 引脚配成"复用推挽输出"——这是关键，配成普通推挽就只是普通 IO，
+          定时器根本控制不到这个脚。原工程 LED.c 就是错在这里 */</span>
+    GPIO_InitStructure.GPIO_Mode  = <span class="hi" data-page-node-id="JD5OHPlFoVjZ3jZvWdyzfl">GPIO_Mode_AF_PP</span>;
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    <span class="f" data-page-node-id="6iZfXzEIpUZGFJENb0GEeP">GPIO_Init</span>(GPIOA, &amp;GPIO_InitStructure);
+
+    <span class="c" data-page-node-id="WoPL7uSQSuOKXS2QDCPcam">/* ③ 时基：72 MHz / 72 = 1 MHz 计数，计满 1000 个就是 1 kHz */</span>
+    TIM_TimeBaseInitStruct.TIM_Prescaler = <span class="n" data-page-node-id="n68YhHAnKiiE0UdIp85lxF">72</span> - <span class="n" data-page-node-id="aZvhuQWNWshFGdHRz7GhaL">1</span>;   <span class="c" data-page-node-id="TwDtaNhBG0pkygAe7UABu2">/* 寄存器写 71，实际分频 72 */</span>
+    TIM_TimeBaseInitStruct.TIM_Period    = PWM_PERIOD - <span class="n" data-page-node-id="x4N6AhREImUZIokuYj7gMy">1</span>; <span class="c" data-page-node-id="Y7j6cdhkrxrGUywchXUsBw">/* 寄存器写 999，实际周期 1000 */</span>
+    TIM_TimeBaseInitStruct.TIM_CounterMode = TIM_CounterMode_Up;
+    <span class="f" data-page-node-id="9DejQbjnIADVdrEYb31xDO">TIM_TimeBaseInit</span>(TIM2, &amp;TIM_TimeBaseInitStruct);
+
+    <span class="c" data-page-node-id="t4hqVxvOOLzn1pzRZB7oih">/* ④ 输出比较通道 2：PWM1 模式 = 计数值 &lt; CCR 时输出高电平 */</span>
+    TIM_OCInitStruct.TIM_OCMode      = TIM_OCMode_PWM1;
+    TIM_OCInitStruct.TIM_OCPolarity  = TIM_OCPolarity_High;
+    TIM_OCInitStruct.TIM_OutputState = TIM_OutputState_Enable;
+    TIM_OCInitStruct.TIM_Pulse       = <span class="n" data-page-node-id="9Iyy06UfaQeiiQWOaQGFFz">0</span>;              <span class="c" data-page-node-id="XgslOcIVlk0akn5tx7mnL2">/* 初始占空比 0 = 不亮 */</span>
+    <span class="f" data-page-node-id="EyusXhgcQGjtRWoS662Bv6">TIM_OC2Init</span>(TIM2, &amp;TIM_OCInitStruct);            <span class="c" data-page-node-id="T1H2YUvrqitUzKOdd1TAAv">/* 注意是 OC2，对应 CH2 */</span>
+
+    <span class="f" data-page-node-id="1UNx7gTCTsXSbjmRCgdsDA">TIM_Cmd</span>(TIM2, ENABLE);
+}</pre>
+  </div>
+
+  <div class="note info" data-page-node-id="5FDF79NpKVo9NnefYyyKuG">
+    <span class="t" data-page-node-id="QYkIlZyWfVKm4G6PCxnyRd"><code data-page-node-id="DSlPRd7Ph7iunnyQC1znug">TIM_Prescaler = 72 - 1</code> 里的减一是怎么回事</span>
+    寄存器存的是"分频系数减一"。写 71 → 实际分频 72。同理 <code data-page-node-id="cz3ekDc2LNf634QTIe1mAB">TIM_Period = 999</code> → 实际计 1000 个数。所以看到别人的代码里到处是 <code data-page-node-id="5ffZ7CTmSnj45klBDwTKsu">-1</code>，不是随手写的。<strong data-page-node-id="7ejgbr4WQ77eBlGWOD5Ehr">忘掉这个减一，频率就会差一点点</strong>：71 分频 → 1.014 kHz，不致命但说明没搞懂。
+  </div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section id="s3" data-page-node-id="WR2NteKNi2CoFbzvgI0H6o">
+  <h2 data-page-node-id="vmiHwRtebIRer0IF1kBw3h">3 · ADC 通道怎么选<span class="sub" data-page-node-id="HkqHYDzFffIiGHMAOdFHuR">为什么是 ADC1_IN0（PA0），采样时间为什么必须调大</span></h2>
+
+  <h3 data-page-node-id="CVB79YR7Bg91xb9OeCIbTt">3.1 通道和引脚是焊死的</h3>
+
+  <p data-page-node-id="0cNL6dNMpXzoHjps4mtwID">ADC 的通道号<strong data-page-node-id="o7nD4m1SIi5lcxmbAYLw4k">不是你想选就能选</strong>，它和引脚是一一对应的硬件连线关系。F103 的映射是固定的：</p>
+
+  <div class="tw" data-page-node-id="SUC1utvWpGSVMcaSUcwrKj">
+    <table data-page-node-id="pe6Jqmswq7PXkOBzFtyiyz">
+      <thead data-page-node-id="EkBWsAxHUeqjoG1biWLNyw"><tr data-page-node-id="I8H7oBA5BMWDaJ5ibd0U9X"><th data-page-node-id="3ZsfcLHgegh4QMEl2vxMAl">通道</th><th data-page-node-id="H2M0Q8GQb5gNFwXK9heC80">对应引脚</th><th data-page-node-id="J5XS5zXrW2ucxYzJw5whDT">本项目状态</th><th data-page-node-id="KvNWmnZHTyoRsyYJkUoosX">通道</th><th data-page-node-id="RptwsnuK8o55S22KZ4Ryon">对应引脚</th><th data-page-node-id="V6YyRE3tLnNwV9dOEczsKG">本项目状态</th></tr></thead>
+      <tbody data-page-node-id="TdeGMZvBja21xoDYopiLMn">
+        <tr data-page-node-id="lRTnOGjPysWPJ6jCnj12uL"><td data-page-node-id="pSQZtHybCYZE23SctTBKr4"><code data-page-node-id="DMytQUwaAcvgetaqzZHL1A">IN0</code></td><td data-page-node-id="SbHXz2h69z5gXnLudcR8gf"><strong data-page-node-id="zP8jL7AApb4GKArzQSnHPA">PA0</strong></td><td data-page-node-id="3SEO3sjWzHThUTrPDSumig"><span class="pill p-use" data-page-node-id="miu40gaNb7pSOn2WBPOn2K">光敏 AO</span></td><td data-page-node-id="lW1dadnxBrEyckGDZHH4o3"><code data-page-node-id="qc8eoA4VD2RsB0b5YmWEmt">IN8</code></td><td data-page-node-id="xSiYpUzCL7sC7ovP0Aq4Cy">PB0</td><td data-page-node-id="oa2aJ0wINDHDK8LURhE8QQ"><span class="pill p-free" data-page-node-id="BI37fL9YgkNrS0plfC15AP">空闲</span></td></tr>
+        <tr data-page-node-id="xlxf8OEqZoJkjwZGaWqTWJ"><td data-page-node-id="1ItLmyUIfxpflGbOWGLuOg"><code data-page-node-id="SuRzWOEkqKpdbXU2XCoyXX">IN1</code></td><td data-page-node-id="2mq8hABeC0F1THYbT8VVeb">PA1</td><td data-page-node-id="kCEk5Y1uR6AoNH1YUdWgmZ"><span class="pill p-keep" data-page-node-id="z2klX42B4BCWgIjDz7mcIc">被 PWM 占</span></td><td data-page-node-id="NG8EgvPzjDefh4AePfRglV"><code data-page-node-id="iSoFhUhZIZ83wLk8Ec07EK">IN9</code></td><td data-page-node-id="lf8JcWaqJeE7hakDSMzo7g">PB1</td><td data-page-node-id="QivaFGDhdwcKAu7n89w3WB"><span class="pill p-res" data-page-node-id="hdmZ8BGRvU8aJoYmC7o7B6">按键预留</span></td></tr>
+        <tr data-page-node-id="DGtk3HDPpilK98cvr0AsHF"><td data-page-node-id="HEuwQnAVUT79eg2SAiSobm"><code data-page-node-id="GTGDLqcbInyTPbALomYEa1">IN2</code></td><td data-page-node-id="MM9lD5RjHe8JuDonHFGZ1s">PA2</td><td data-page-node-id="nFRUUtApVG84PNc5MCBGhq"><span class="pill p-free" data-page-node-id="2dqgIn7CG3IixATUckRjeF">空闲</span></td><td data-page-node-id="MwLsSXBRvljbfKvRffvJEs"><code data-page-node-id="zfv7yBFxqgxeUISlmXnl74">IN10~15</code></td><td data-page-node-id="ihEEYAjriX8ID7FHOGkv1J">PC0~PC5</td><td data-page-node-id="n9sM174GUyAWqL8UGjugIN"><span class="pill p-free" data-page-node-id="f5coEz5LaPYpsIqCoCY6ul">空闲</span></td></tr>
+        <tr data-page-node-id="ay049JRaMsH98nOHxNeyk7"><td data-page-node-id="JN6v9RXnSdDwmCJy0q2hZ5"><code data-page-node-id="lLlLkkpUJWtrB46E1lpH6Z">IN3</code></td><td data-page-node-id="kFezJaEkHiDCW6IcKYT0RC">PA3</td><td data-page-node-id="ZQpPUHRehDoNR0hmuEdnMm"><span class="pill p-free" data-page-node-id="oISOzl0S9zNdjGbZrmXXKL">空闲</span></td><td data-page-node-id="mTHEypRltvvKLEhiDEPsXx"><code data-page-node-id="kwMEzIQTAbDQlGVsmUMLDM">IN16</code></td><td data-page-node-id="8yAC4DMS5op2oAq3zFA0Hy">内部温度传感器</td><td data-page-node-id="68HEmabIZSrbW80se98tBB"><span class="pill p-free" data-page-node-id="LniLLerQiCWEhmsqzcG5jW">未用</span></td></tr>
+        <tr data-page-node-id="0I2XBx8m5Mhbh54zyIMjjp"><td data-page-node-id="rCWP4Un09yzk9htqFzDsHk"><code data-page-node-id="9XibSfv4gi1ot2hd7utGAK">IN4~7</code></td><td data-page-node-id="qnSDa5WZgWIern9G35pDN3">PA4~PA7</td><td data-page-node-id="pwGzoT3vmYfJrIBdZ30Pd5"><span class="pill p-free" data-page-node-id="ulRZicw07AHSATM7YIDZsJ">空闲</span></td><td data-page-node-id="yfz8lC33dTfMxOhahPpesf"><code data-page-node-id="7IAgcfE6qHp8yi0Nj03vcW">IN17</code></td><td data-page-node-id="YRqSNhV0wvA4LktuwTNtgv">内部 Vrefint</td><td data-page-node-id="iHSLVyuAc2eTyaV360MY4P"><span class="pill p-free" data-page-node-id="bejWtXVbcSyAAXOEd104rF">未用</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="decision open" data-page-node-id="s1MkyDksf9Wnr4G2aVxk38">
+    <div class="dhead" onclick="this.parentNode.classList.toggle('open')" data-page-node-id="x2KEOSD3v4dgCljK8UjIsW">
+      <div class="q" data-page-node-id="impxw1qzhWu9uxHTZp3sLq">PA2、PA3、PA4 都空着，为什么光敏非要用 PA0？
+        <small data-page-node-id="lrSSilVUXPYmyVGSC65BCG">答案很朴素：因为 PWM 先占了 PA1，而 ADC 用 PA0 不需要动任何配置</small>
+      </div>
+      <span class="arrow" data-page-node-id="j3CbVJlcgZDUDjrX2Rx58G">▶</span>
+    </div>
+    <div class="dbody" data-page-node-id="jCDmAEGjeLBLJQ8ZNCRJz2">
+      <ul data-page-node-id="5AVNFLPH8LPV3lHiFTCDqI">
+        <li data-page-node-id="nvwTubrI4iUllp61t4MDET"><strong data-page-node-id="L3pB8AAF2GwEc2e1m3ra4w">PA0 → IN0</strong>：通道号和引脚序号正好对齐，<code data-page-node-id="GNUlG6qPbkWPFdFOtsG3mN">ADC_Channel_0</code> 配 <code data-page-node-id="6YWRnqokl9bq5V04UpSxCj">GPIO_Pin_0</code>，两者读起来一致，不容易写错。</li>
+        <li data-page-node-id="qZsqKZ2sK1ZI65tTkoDkmT"><strong data-page-node-id="1nK41oATICEtKqJxKAGcYO">为什么不用 PA2（IN2）</strong>：能用，但没理由。PA0 与 PA1 相邻，光敏模块和 LED 可以并排插在板子同一侧，走线短。</li>
+        <li data-page-node-id="NriUoeWBGe7UQ5XSfnYr4f"><strong data-page-node-id="033fQ4OFWCBwpBELefOzJN">为什么不用 PA4~PA7（IN4~IN7）</strong>：这几脚虽然空着，但它们同时是 SPI1 的 NSS/SCK/MISO/MOSI。留着的价值比用一个 ADC 通道大 —— 万一以后要加 SPI 屏幕或 Flash，就不用重新挪线。</li>
+      </ul>
+      <div class="ans" data-page-node-id="4Yh6R6FlgfZ9fkid7RgfWw"><b data-page-node-id="9yOZHp6lJBHesCM0BV2jr9">结论：</b>ADC1 的 <b data-page-node-id="sJKkRG22MSChbV4NB0hmxF">IN0 → PA0</b>。判据是<b data-page-node-id="rpAqFVmfcGhqe2ATykXMBC">"不需要重映射、不需要额外配置、与已占资源不冲突"</b>，三个条件同时满足的首选就是 PA0。</div>
+      <div class="reject" data-page-node-id="2nosXbQtEsaZyNOoXZdDCi">
+        <span class="rt" data-page-node-id="DSwq5RJ8e4u9eLiEpshed3">注意这里没有"最优解"，只有"当前约束下的合理解"</span>
+        如果当初 PWM 选了 PA3，光敏大概率就会用 PA2。引脚分配是<strong data-page-node-id="Eyt7dZvLuqVziZBmAfbvMg">决策顺序</strong>决定的：先定输出（引脚约束最强的），再定输入（最灵活的）。这次恰好反过来 —— 光敏先定，PWM 跟着挪，才有了 PA1 的取舍。
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="KPfRA5MoPnQHbGp5ArKLGI">3.2 为什么必须配合 DMA</h3>
+
+  <p data-page-node-id="1mjxTDAatSTQMi8bmZGctG">配置成<strong data-page-node-id="BLGL722CiLxXhgOWpRd6Y9">连续转换模式</strong>后，ADC 一启动就自己不停地转，每转完一次把结果丢进 <code data-page-node-id="nd9kKrOCxEmuC76lnzDM8S">ADC1-&gt;DR</code>。这里有个陷阱：<strong data-page-node-id="2GVBYnWU6aPWVf1gUvB88i">如果你不读走 DR，下一次转换就会把它覆盖掉</strong>，同时置位 ORE 溢出标志。</p>
+
+  <p data-page-node-id="y6ZjclLP9RiNBh3T6Y4t99">最笨的办法是在主循环里不停查 EOC 标志然后读 —— 那样 CPU 就被绑死在"守着 ADC"这件事上。DMA 的作用就是<strong data-page-node-id="tWCdD2ICqA6IdcOO6HKHaI">把这件机械劳动交给硬件</strong>：每次 EOC 自动把 DR 搬到内存数组里，搬满 8 个就自动绕回开头（循环模式），CPU 完全不用管。</p>
+
+  <div class="grid2" data-page-node-id="ofTXEqSPYDKQk2E7wjXNXs">
+    <div class="card" style="border-left:4px solid var(--blue);" data-page-node-id="7ajHCkAmpoLcBgUUIdUOyQ">
+      <h4 style="margin-top:0;" data-page-node-id="HyEaOwgl6cKuHlvL3McVzo">DMA1_Channel1 是唯一解</h4>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="u0qf5HoFKwWsGdsbwf4BjA">F1 系列里，外设触发哪个 DMA 通道是<strong data-page-node-id="9klDZhETRqXfXRwI0WpsCb">硬件连线写死的</strong>，不是可配置项。ADC1 的请求固定接在 <code data-page-node-id="Q1LugrBgthF6umduwQdsKZ">DMA1_Channel1</code> 上（ADC2 → 通道 2，ADC3 → 通道 5）。</p>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="HGLXwLnEZB7N2O2VsVeaOw">所以这里不存在"选择"，只有"<strong data-page-node-id="dEVCNGfmbP3jKIFlDPlXTh">查表得到</strong>"。写代码前去参考手册的 DMA 请求映射表查一眼，比试出来快得多。</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--teal);" data-page-node-id="sF3wFtGZicO5oGf3aCUZh4">
+      <h4 style="margin-top:0;" data-page-node-id="fDREWiv5pZ0HfT2ENsimh3">8 个半字取平均</h4>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="uIDPzme0NwMDMzKslPwBW4">ADC 单次读数天然带抖动（电源纹波、杜邦线天线效应）。缓冲区设 8 个半字，取平均后抖动明显变小，OLED 上的数字不会乱跳。</p>
+      <p style="font-size:13.8px;margin:4px 0;" data-page-node-id="ZvVBu8sd3azErKVti7WSgF">代价只有 RAM 里 16 字节 —— 换来的稳定度非常划算。这也是"循环模式"的另一个好处：<strong data-page-node-id="kf0899eWT3xxbgLEn9tNnP">不需要任何软件干预，平均值永远是最近 8 次采样的</strong>。</p>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="hXzmiPxOkfF0ugEKgmGlm0">3.3 采样时间为什么调大：这是最容易忽略的一步</h3>
+
+  <div class="decision" data-page-node-id="qxKDHWKfQTBFcvVQCzWOEU">
+    <div class="dhead" onclick="this.parentNode.classList.toggle('open')" data-page-node-id="UBuUYGu994dXkn3y8G5jIA">
+      <div class="q" data-page-node-id="R1fn54ONIiBl0mNBcUeoDi">代码里写的是 <code data-page-node-id="s5tV1OAWn1vhDkD2rzoD2X">ADC_SampleTime_55Cycles5</code>，为什么不是默认的 1.5 周期？
+        <small data-page-node-id="rRTf9ALbI5iIEGGYWykf2Q">这不是凑数，是跟光敏分压电路的输出阻抗有关</small>
+      </div>
+      <span class="arrow" data-page-node-id="5iNuzcMCNCoIQH8pCc0m7V">▶</span>
+    </div>
+    <div class="dbody" data-page-node-id="jVxQzh5niSsIm5nVpn1F5l">
+      <p data-page-node-id="7IlHVDGO8jIc0bbYnwNaSp"><strong data-page-node-id="uFmDHpCJZH3taeKQBIU9e9">ADC 是怎么采样的：</strong>内部有一个采样电容 C<sub data-page-node-id="LZFKMc3TDTzrL6tRAVCraU">ADC</sub>（约 8 pF），采样阶段把它通过外部电路"充"到被测电压。这个过程需要时间，时间常数 <code data-page-node-id="bHXFWxUDB2av9jprqF2npp">τ = (R<sub data-page-node-id="b4pQtfEYlqStp08lZoDWl1">源</sub> + R<sub data-page-node-id="H1hWbRaaRGEyCPCVyGTMZG">ADC</sub>) × C<sub data-page-node-id="AArOoVa0WsK2bralOTFf2a">ADC</sub></code>。</p>
+
+      <p data-page-node-id="hwnZjNeoSuEs4xLRyaltAE">光敏模块的输出级是<strong data-page-node-id="GkTBTcbTN00JB3zPQRduTf">一个 10 kΩ 电阻和光敏电阻分压</strong>，等效输出阻抗在几 kΩ 到十几 kΩ 量级 —— 比用运放缓冲的信号源高得多。源阻抗高 → 时间常数大 → <strong data-page-node-id="ejNUPducSw52uS48oGtOXS">采样时间不够，电容还没充到目标值就被切走了，读出来的数偏低</strong>。</p>
+
+      <div class="tw" data-page-node-id="m7rL3VrxXmkAQJqTq1fCqC">
+        <table data-page-node-id="b668ooDUypbP3vspunOYeN">
+          <thead data-page-node-id="9d0IRTg1zpGQFW8x3TxVbp"><tr data-page-node-id="1wMDmdWvocewMf42WdElPJ"><th data-page-node-id="Yri74oACbcS8Brf9NdG2f7">采样时间</th><th data-page-node-id="X7YL2YjkS7qYY1fyVE4e0i">总转换周期</th><th data-page-node-id="gB7OanqYDpeaNPDbEUlpDC">12 MHz 下耗时</th><th data-page-node-id="5MyXt4UomkJcW5YWL0sT42">对高阻抗信号源</th></tr></thead>
+          <tbody data-page-node-id="Ttshm6aACGQVEicoWjI7be">
+            <tr data-page-node-id="jJAJHoS9pfETcCEfyxlgN8"><td data-page-node-id="E1b0DOePmNgqh9hqwhu5wB">1.5 周期</td><td data-page-node-id="oVWY3qXCq5sFNJKhPjocJX">14 周期</td><td data-page-node-id="DzzTgncU9iDjFAn61HSNI0">1.17 µs</td><td data-page-node-id="2wKzj2eAoi1FT5ATQXBKio"><strong data-page-node-id="cFBdlqrAl7dFYgKLVxulND">明显欠采样</strong>，读数偏低且不稳定</td></tr>
+            <tr data-page-node-id="tjOIbcxgVe0TFVTVKhxETR"><td data-page-node-id="T0ZzWplHIAiuRmX9LrLaCE">13.5 周期</td><td data-page-node-id="CNV71Ia2Ey1MV0w9PzKCo6">26 周期</td><td data-page-node-id="XrtruhITwaZG6FewrUuAn9">2.17 µs</td><td data-page-node-id="Mm6l36yZFv6Y1lmJlM03hp">勉强够用</td></tr>
+            <tr style="background:#f0fdfa;" data-page-node-id="4P6H1RHPr3EC78tREruSZn"><td data-page-node-id="ZXg5lUgxpynFk7icWCCyIO"><strong data-page-node-id="CvqwmjyrlwLjW0MzJFg2sf">55.5 周期</strong></td><td data-page-node-id="TaW5mtDY1kdJpKFz6HCZtC"><strong data-page-node-id="Vucsyohzx4IZFD5LRiD75F">68 周期</strong></td><td data-page-node-id="KEMbKh2LEvoCuRPdRa9lEN"><strong data-page-node-id="HSEyVwa26YSdEBm6rRQDPy">5.67 µs</strong></td><td data-page-node-id="1AYAlHWUBzGpRhFvdfQ9Je"><strong data-page-node-id="YowOBRSiMHTDkecbY8H7u1">充分建立</strong>，读数稳定</td></tr>
+            <tr data-page-node-id="aX74U4n7RFvn0fSH6ErzvY"><td data-page-node-id="NyRG29lrjeWWjhhODHxGNA">239.5 周期</td><td data-page-node-id="Vur7IEAyEij7dPua7DIpta">252 周期</td><td data-page-node-id="rn7gLChAdN2GRkYr2ADK18">21 µs</td><td data-page-node-id="ZB5E43J0Mg1tFIxBXm5yO7">过于保守，转换速率降到 48 kHz</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ans" data-page-node-id="5EL8NRaVvMG0FcHDAvpBE1"><b data-page-node-id="G0lMyZf1NcObblGB9iS8HF">结论：</b>55.5 周期。判据是 <b data-page-node-id="rvKqV1fBxyek9UxPC9kVbo">"源阻抗高 → 采样时间留足建立时间"</b>。本项目最快只需要几百 Hz 的采样率，把 5.67 µs 花在精度上完全不亏。</div>
+
+      <div class="note warn" data-page-node-id="VfcuLM6rzGiWwLpGYIpJA6">
+        <span class="t" data-page-node-id="nDXji1Gx7KTd0Gb9ujTiQW">顺手提一个硬件层面的坑</span>
+        如果信号源阻抗特别高（&gt; 50 kΩ），光靠延长采样时间也救不回来，正确做法是在分压点和 PA0 之间加一级<strong data-page-node-id="J9fhVUsEpuHlZpmENtjqgh">电压跟随器</strong>（运放缓冲）。本模块的阻抗量级还没到那一步，55.5 周期够用。
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="mzfNaBjCVYAIpUUDs6MS4V">3.4 ADC 时钟为什么是 12 MHz</h3>
+
+  <p data-page-node-id="UZYCra1kNfGsPijuaJSk0o">ADC 模拟部分有<strong data-page-node-id="DxZF4RrgNqPAgj05xX792D">硬性上限 <code data-page-node-id="MovpD87VoQHvzCiI27gpn9">ADCCLK ≤ 14 MHz</code></strong>（数据手册规定，超了精度会掉甚至不工作）。APB2 是 72 MHz，所以必须分频：</p>
+
+  <div class="tw" data-page-node-id="S8x8g4OBxzC75S5GBcACVa">
+    <table data-page-node-id="PfaK3TRmOfE9zkYGjqYdcs">
+      <thead data-page-node-id="SVkAUnVOTRKg4uQJX87OTC"><tr data-page-node-id="eyO9HD1JMKUGHhA0FSjJjc"><th data-page-node-id="Ch3slhNS5EAvwINluiV7jE">分频</th><th data-page-node-id="4rRSDaqJRJBbwIP4b7Oqxi">ADCCLK</th><th data-page-node-id="aLEx8qGYAa8MooE0zriQ3C">能否用</th></tr></thead>
+      <tbody data-page-node-id="ET9xS0LccDl354IPmD6G8f">
+        <tr data-page-node-id="L9OjboMaAnhSEPbYSW2ZXM"><td data-page-node-id="C7EcXCFXeqj0l2Z8FOZADN"><code data-page-node-id="cXuFRb055CWsE8oEPjRJJ9">RCC_PCLK2_Div2</code></td><td data-page-node-id="kHXYMbuWAByCx9cpUiHDao">36 MHz</td><td data-page-node-id="RYAxxfO8NwShj1wHZwYxbO"><span class="pill p-keep" data-page-node-id="EQbWI1pI3Qb1VmJO2PcyQL">超标，禁止</span></td></tr>
+        <tr data-page-node-id="47IO0n8YyRNON6FeeKUEtb"><td data-page-node-id="xuBz5ri05GvqvHnSnHHbje"><code data-page-node-id="qeKj29MUPRyLdA7pKqMnfQ">RCC_PCLK2_Div4</code></td><td data-page-node-id="UvyabHhQVRKAEH5XBgVrH2">18 MHz</td><td data-page-node-id="q7sPDTUAFFT4JnA2N8KVBH"><span class="pill p-keep" data-page-node-id="YOtRygYtAcKsihSv8Sn59p">仍超标</span></td></tr>
+        <tr style="background:#f0fdfa;" data-page-node-id="XV4p4Jridpk8MUIgR8see4"><td data-page-node-id="vuKf2PwfwsXGxNyw53EMFe"><code data-page-node-id="Egqtp5gTkEaQkcXCM8mT0U">RCC_PCLK2_Div6</code></td><td data-page-node-id="AYShduDBBAes6BSqYD9iFg"><strong data-page-node-id="KHGb4FSA0PJ2cAqSVNPyzx">12 MHz</strong></td><td data-page-node-id="yOHSwqWS1UQOma9oDI5F0E"><span class="pill p-use" data-page-node-id="UrDqgO1igYHFY38xb18HeP">本工程</span></td></tr>
+        <tr data-page-node-id="DwsjAP4WKEJAqltLEzCjyj"><td data-page-node-id="a5TuGekoXQe1w8N4OO6GcO"><code data-page-node-id="GFA7EYV3dbCl51QcvnQI5j">RCC_PCLK2_Div8</code></td><td data-page-node-id="eE3REwyV4WljMet9BZItUK">9 MHz</td><td data-page-node-id="P4Stoi1cyMzV6tEp0LWwMe">可用，但转换更慢，没必要</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p data-page-node-id="g4qN4ML5eIhIV74QSgs3LE">分频系数只有 2/4/6/8 四挡（<code data-page-node-id="BkEWueizGixV6ZofA15xXe">RCC_ADCCLKConfig</code> 能给的选项就这些），所以能选的最大合规值就是 12 MHz —— <strong data-page-node-id="EM9g8Ui68pJLfMRM6inAN5">在合规的前提下取最大，转换最快</strong>。</p>
+
+  <h3 data-page-node-id="AmHeC7knCzHAmobzraS3q6">3.5 ADC 初始化的顺序不能乱</h3>
+
+  <div class="codebox" data-page-node-id="O6DaeuxBKOVqErrwDjNMvK">
+    <div class="cbar" data-page-node-id="m8i7LtS2wBcteIQNQ29OGg"><span data-page-node-id="K6iWzupEmTwb2FYl2uvEyy">System/AD.c</span><em data-page-node-id="IMcCTlc5U1NwYelBM723GB">顺序是有讲究的，标了序号</em></div>
+<pre data-page-node-id="noh5YQJICNqsA1rKXTM6mp"><span class="k" data-page-node-id="P0IY4BEG9VEjz4uutCYBcX">void</span> <span class="f" data-page-node-id="AP2UNUBV04Vidwc52DGss8">AD_Init</span>(<span class="k" data-page-node-id="y3u6cLEu0bHoinSCiI8u1w">void</span>)
+{
+    <span class="f" data-page-node-id="J0Fc4n451MdNkDpvhoFNuZ">RCC_APB2PeriphClockCmd</span>(RCC_APB2Periph_ADC1 | RCC_APB2Periph_GPIOA, ENABLE);
+    <span class="f" data-page-node-id="1Rm4RJvYG1FCbu7p8hCAah">RCC_ADCCLKConfig</span>(RCC_PCLK2_Div6);   <span class="c" data-page-node-id="Q5kEzzGvgPqOzLvgnWV9p8">/* 72/6 = 12 MHz，上限 14 MHz */</span>
+
+    <span class="c" data-page-node-id="GIQgUZn2waPSv5PPrPA82U">/* ① 模拟输入模式：GPIO_Mode_AIN。配成推挽/上拉都会破坏采样 */
+    /*    原工程 Timer.c 把 PA0 配成上拉输入，AD.c 又配成模拟输入，两者打架 */</span>
+    GPIO_InitStructure.GPIO_Mode = <span class="hi" data-page-node-id="X1nBUfWe21u9nBhOD8Ctlr">GPIO_Mode_AIN</span>;
+    GPIO_InitStructure.GPIO_Pin  = GPIO_Pin_0;
+    <span class="f" data-page-node-id="S2CVjHfOb3yhPfTP9yYg1k">GPIO_Init</span>(GPIOA, &amp;GPIO_InitStructure);
+
+    <span class="c" data-page-node-id="dCyHVeHOebmEq6J66wzVv0">/* ② 先配 DMA，再开 ADC 的 DMA 请求与 ADC 本体 */</span>
+    <span class="f" data-page-node-id="Dwteq13NGbxoPS01GowjiS">DMA_AdcInit</span>(s_adcBuffer, AD_BUFFER_SIZE);
+
+    ADC_InitStructure.ADC_Mode               = ADC_Mode_Independent;   <span class="c" data-page-node-id="TCDnx7Se9cMhIw8DkGG6HA">/* 单 ADC，不玩双 ADC 同步 */</span>
+    ADC_InitStructure.ADC_DataAlign          = ADC_DataAlign_Right;    <span class="c" data-page-node-id="G44g7jzay2xVdt5yQ12jbE">/* 12 位右对齐 */</span>
+    ADC_InitStructure.ADC_ExternalTrigConv    = ADC_ExternalTrigConv_None;
+    ADC_InitStructure.ADC_ContinuousConvMode  = <span class="hi" data-page-node-id="cFSbltBXREkGHCXoiLcy4O">ENABLE</span>;   <span class="c" data-page-node-id="Ku3IcWHBucBgmpQhuykOKw">/* 连续转换，转完立刻转下一次 */</span>
+    ADC_InitStructure.ADC_ScanConvMode        = DISABLE;  <span class="c" data-page-node-id="g8I6GqdPEuw5Ches220q9n">/* 只有一路，不需要扫描 */</span>
+    ADC_InitStructure.ADC_NbrOfChannel        = <span class="n" data-page-node-id="C4dZEALlbsqiqxmxojbyMY">1</span>;
+    <span class="f" data-page-node-id="9577xNsOJ7LBikePerY1nK">ADC_Init</span>(ADC1, &amp;ADC_InitStructure);
+
+    <span class="c" data-page-node-id="FMA9yCn4rl440DB2DOeUUF">/* ③ 规则通道序列第 1 位 = 通道 0，采样 55.5 周期 */</span>
+    <span class="f" data-page-node-id="69ucuJYw25zZYNCXUrTZyu">ADC_RegularChannelConfig</span>(ADC1, ADC_Channel_0, <span class="n" data-page-node-id="ktDZM0Ld0FvuULG9U7clJ2">1</span>, ADC_SampleTime_55Cycles5);
+
+    <span class="f" data-page-node-id="l8baINfHvafINPT8HZsCgv">ADC_DMACmd</span>(ADC1, ENABLE);
+    <span class="f" data-page-node-id="0oRnZblVkWjKL95FK8V3He">ADC_Cmd</span>(ADC1, ENABLE);
+
+    <span class="c" data-page-node-id="CMvedOIR8TuuxkOPciJFGQ">/* ④ 校准：必须先复位校准、等标志，再启动校准、等标志 —— 顺序错会读到错误值 */</span>
+    <span class="f" data-page-node-id="EHqMTTVKoRFUPIAK3suEZI">ADC_ResetCalibration</span>(ADC1);
+    <span class="k" data-page-node-id="bGwlMMYTTuDQPIkGO9d6HF">while</span> (<span class="f" data-page-node-id="XkeExaqjpwGltOaIBx31vm">ADC_GetResetCalibrationStatus</span>(ADC1) == SET);
+    <span class="f" data-page-node-id="qMs7VF9EjEDncyfOoHTO40">ADC_StartCalibration</span>(ADC1);
+    <span class="k" data-page-node-id="eZkBobfIG2o5xpabGg7PG5">while</span> (<span class="f" data-page-node-id="mZrO0JDuNG0RpGeaUb73hW">ADC_GetCalibrationStatus</span>(ADC1) == SET);
+
+    <span class="c" data-page-node-id="lajplpwkpqayal1tbFaol3">/* ⑤ 软件触发。因为开了连续模式，这一下就够它一直转下去 */</span>
+    <span class="f" data-page-node-id="nMCFCBQ13eBcElthBJM6xi">ADC_SoftwareStartConvCmd</span>(ADC1, ENABLE);
+}</pre>
+  </div>
+
+  <div class="note info" data-page-node-id="OO8ARzA4ZlEOEAyWhiDGd5">
+    <span class="t" data-page-node-id="6SU00Lkcu5oNMSB6A0FD8o">规则通道 vs 注入通道</span>
+    ADC 有两组通道序列：<strong data-page-node-id="xLHZgJBQviJKk8AFBpaj2X">规则组</strong>按顺序自动转换，<strong data-page-node-id="6PzZ1LbuOU8CsDMiH0I9aB">注入组</strong>可以打断规则组、优先转换（像中断一样）。本工程只有一路信号、也不要求"紧急插播"，所以只用规则组。如果以后要加"过流保护"这种必须优先响应的采样，才需要考虑注入组。
+  </div>
+</section>
+
+<!-- ================= 4 ================= -->
+<section id="s4" data-page-node-id="oDnAPEcixgcKinNHFujBhQ">
+  <h2 data-page-node-id="xbL7BSlGrueSFjGR1DiFE7">4 · 串口 / OLED / 板载 LED 的选型<span class="sub" data-page-node-id="2of1yOBV9fpzOainhCfxe1">外围器件的选择逻辑</span></h2>
+
+  <h3 data-page-node-id="0FPOCyJvVG89qhLpeoN1qA">4.1 为什么是 USART1（PA9 / PA10）</h3>
+
+  <div class="tw" data-page-node-id="898uWYFy6Xta9ANo2BLZzs">
+    <table data-page-node-id="o2N63iKPcuvCpfpIO3iEtJ">
+      <thead data-page-node-id="5wFPOFdNHBFug8f4GLTwWB"><tr data-page-node-id="5wIlliKu9xXogVEp2XA4Xn"><th data-page-node-id="z0e8xSECBFsdtniTQi0Ezn">串口</th><th data-page-node-id="DwiErgHvljAECBbdpHUQLt">总线</th><th data-page-node-id="DV419D0mZx8TydlHj42thf">默认引脚</th><th data-page-node-id="JD3NknUiahp7apxJLza9MQ">本项目状态</th></tr></thead>
+      <tbody data-page-node-id="HhmgGyh8dSdKIRBr0bgSOI">
+        <tr style="background:#f0fdfa;" data-page-node-id="Vwp8EKuDOFDIFsyTJxxUaf"><td data-page-node-id="GLySE4zMKN2pfRd6aoMj5F"><code data-page-node-id="ldvDoqRe0VO8h0VDXauTID">USART1</code></td><td data-page-node-id="iAQwzUsjZ1JuR7JZrMdc7P">APB2（72 MHz）</td><td data-page-node-id="ChRhanfNe2Gn8aoOp5Eb9O">PA9 / PA10</td><td data-page-node-id="1k7aEjcA8RO52fiDCclixw"><span class="pill p-use" data-page-node-id="L4ffjFeITESpO3BAwZ0eb8">使用中</span></td></tr>
+        <tr data-page-node-id="7yKRyABtCat5UGwfrYIQ8q"><td data-page-node-id="MeXNdQfq2hWgcCRhF0QV7o"><code data-page-node-id="zIsSPbE6XWzqE9Bied5xbg">USART2</code></td><td data-page-node-id="zSW6qLXEVwrnT1Q3emfTwa">APB1（36 MHz）</td><td data-page-node-id="q1DGDIMKKoi9Lx97pNaDSq">PA2 / PA3</td><td data-page-node-id="JtCsxqBAemB64TLkWv0DHe"><span class="pill p-free" data-page-node-id="sAzYJwA4tQJuh0piX8aqtJ">空闲</span></td></tr>
+        <tr data-page-node-id="3PwI8Q5Mf7ldMSdrKqI1dq"><td data-page-node-id="D25QpUcrDh9I7buXBdKOUq"><code data-page-node-id="WQSFzDZBBzDOKtIeUyrrIz">USART3</code></td><td data-page-node-id="cCi6N6g2QuKyZl9avrXDdA">APB1</td><td data-page-node-id="8TiA5tNNNqWUAFWSC952fy">PB10 / PB11</td><td data-page-node-id="czE89cB2meHenDK4riDfLj"><span class="pill p-res" data-page-node-id="Vi3nXG5Q1SAT4pOLztttIv">PB11 按键预留</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p data-page-node-id="yCLBz9Q3rniJi6xGEFqk9u"><strong data-page-node-id="D82Hd0RiZSAishBXdOTUsk">选 USART1 的实际理由：</strong></p>
+  <ul data-page-node-id="FOVV5tk4NWbuaavdvG26mb">
+    <li data-page-node-id="juJLlqWUmV417P2NrZTjev">PA9/PA10 不与任何已定外设冲突（PWM 在 PA1，ADC 在 PA0，SWD 在 PA13/PA14）</li>
+    <li data-page-node-id="bgmHDJPx3RiIY8tPpCe9pP">挂 APB2 跑 72 MHz，<strong data-page-node-id="dcORAmAUIo3V2bakuRncst">波特率计算的分频余量更大</strong>，误差更小</li>
+    <li data-page-node-id="sieYvaLtGARTjGxxq12a8w">几乎所有 STM32 最小系统板的 USB-TTL 都是引到 PA9/PA10，接线说明最好找</li>
+  </ul>
+  <div class="note warn" data-page-node-id="InTs9Tk1qTHjQZBkxWsoid">
+    <span class="t" data-page-node-id="bVU12wF6t1FIq11CW2ADbg">USART2 其实也能用，甚至引脚（PA2/PA3）更空</span>
+    但注意 TIM2 的 CH3/CH4 也在 PA2/PA3 —— 一旦以后想再增加一路 PWM 输出，USART2 就成了障碍。信息量就在这些细节里：<strong data-page-node-id="50Zt8L6YWxAB81c2MP6agm">选引脚时不只是看"现在谁占了"，还要看"谁将来可能要用"</strong>。留出 TIM2 的两个通道，等于给未来的电机/呼吸灯留了余地。
+  </div>
+
+  <h4 data-page-node-id="O5ajjdPm3E5fda8HWcUA1v">接收为什么要用中断 + 环形缓冲</h4>
+  <p data-page-node-id="tdNZYLGfLWtJmjH4QhWZzY">如果主循环里"等一个字节 → 处理 → 再等下一个"，那么主循环被 OLED 刷新或渐变任务占住的那几毫秒里，PC 发来的字节就丢了。解决办法是<strong data-page-node-id="kD5fp5w8HqFYWFUr2AMOZA">让中断承担搬运、让主循环承担解析</strong>：</p>
+
+  <div class="codebox" data-page-node-id="KIBCd5HAL0ukoZdospYDt4">
+    <div class="cbar" data-page-node-id="D4tZy87vs8hgxEExoRt7DH"><span data-page-node-id="olfTyetceVOlRlaQdIhJ3O">Hardware/Serial.c</span><em data-page-node-id="JPVPZM9ZWBC68zR37hFGdM">中断只搬字节，解析全在主循环</em></div>
+<pre data-page-node-id="Z4yfVrXlEKUllSBz9eVfBg"><span class="c" data-page-node-id="BCBRfABZk1FcLcxosTnxbC">/* 中断服务函数：只做两件事 —— 取字节、存进环形缓冲。绝不在这里解析命令 */</span>
+<span class="k" data-page-node-id="IV5ZebddwF9dJtZTGfi089">void</span> <span class="f" data-page-node-id="EX7eOKapgOPvfDSQZoIXpN">USART1_IRQHandler</span>(<span class="k" data-page-node-id="kUoGAnBKcmAWV9vYWmE9yt">void</span>)
+{
+    <span class="k" data-page-node-id="S4iG8c3aZW2EFj2hJ5xCHj">if</span> (USART_GetITStatus(USART1, USART_IT_RXNE) == SET)
+    {
+        <span class="f" data-page-node-id="U6UTwHu3gC320p4zpd5gmV">Serial_RxPush</span>((uint8_t)<span class="f" data-page-node-id="DrOGByzQqHnwmqurctWima">USART_ReceiveData</span>(USART1));
+        USART_ClearITPendingBit(USART1, USART_IT_RXNE);
+    }
+
+    <span class="c" data-page-node-id="hNs5VgqAmR30SwUL256ur6">/* 溢出错误必须读一次 DR 才能清除，否则中断会一直不停地进 */</span>
+    <span class="k" data-page-node-id="1E0PuIqvO0LTYqOFR67u0n">if</span> (USART_GetFlagStatus(USART1, USART_FLAG_ORE) == SET)
+    {
+        (<span class="k" data-page-node-id="WZms6AfEiPLbwCNqXxyJw4">void</span>)<span class="f" data-page-node-id="jrpubNzXwn7ndlvrASxeYd">USART_ReceiveData</span>(USART1);
+    }
+}
+
+<span class="c" data-page-node-id="I2B83ZMwswACpEsaNaw64T">/* 主循环里把散字节拼成整行，拼好才返回 1 */</span>
+uint8_t <span class="f" data-page-node-id="WWT1NVmHo6hoV068Cp0Me0">Serial_Poll</span>(<span class="k" data-page-node-id="Aqw6A2dHg1FwcPkgh3Xv9D">void</span>)
+{
+    uint8_t byte;
+    <span class="k" data-page-node-id="9Dqk1u7EGp5FeStP0xStfQ">while</span> (<span class="f" data-page-node-id="tXadpnYxj9Q9BeFfTo1ceb">Serial_RxPop</span>(&amp;byte))
+    {
+        <span class="k" data-page-node-id="RY85WChMTdFd7OgcPCvCtd">if</span> (byte == <span class="s" data-page-node-id="be6fH2ZkIVrinr2svDHbBW">'\r'</span>) { <span class="k" data-page-node-id="5aYAuWoXWEItCU1Budxia1">continue</span>; }        <span class="c" data-page-node-id="rPdSvmwE73jmTG5jHWslpk">/* CRLF / LF 都能用 */</span>
+        <span class="k" data-page-node-id="VJgxc7Z2FZi0KYsaUMAM6q">if</span> (byte == <span class="s" data-page-node-id="PiqoXGu3oAc3A7fsWAHHME">'\n'</span>)
+        {
+            <span class="k" data-page-node-id="AAeBkM5LAmcj0PdfKVOK9i">if</span> (s_lineLength &gt; <span class="n" data-page-node-id="rDTTJ7QaTAqoACMISqfnxW">0</span>) { s_lineBuffer[s_lineLength] = <span class="s" data-page-node-id="1izbpAUxf7zGf92UYpiwaZ">'\0'</span>; s_lineLength = <span class="n" data-page-node-id="wIg1rCb60nI5evDcOl4ncZ">0</span>; <span class="k" data-page-node-id="tYm8gP5m2SmVzpEqpkex3w">return</span> <span class="n" data-page-node-id="Lu1a3LQRavw0QdFaXuGYMq">1</span>; }
+            <span class="k" data-page-node-id="EoDopAHALf4Oeb3TRkBcpM">continue</span>;
+        }
+        <span class="k" data-page-node-id="GRhGyMz3tqBh4vDwySKan8">if</span> (s_lineLength &lt; SERIAL_LINE_SIZE) { s_lineBuffer[s_lineLength++] = (<span class="k" data-page-node-id="qrA311OGCw9RTkpt3Au7gZ">char</span>)byte; }
+        <span class="k" data-page-node-id="VSQaIfdx7QGK3CX7o1jX1U">else</span> { s_lineLength = <span class="n" data-page-node-id="DlE2zzu40zd8LattBkLhSG">0</span>; }              <span class="c" data-page-node-id="301SI4PXVnNJv8rgQFx636">/* 超长整行丢弃，防止缓冲溢出 */</span>
+    }
+    <span class="k" data-page-node-id="ix6wHL9ykjvQGRPpEaDBwK">return</span> <span class="n" data-page-node-id="JdKOVONsEzQbh1AhakXRBu">0</span>;
+}</pre>
+  </div>
+
+  <div class="note ok" data-page-node-id="hwIZZT1AggAYOmAdSMbMqj">
+    <span class="t" data-page-node-id="pCvVVOoLkWsEtCQCuDevcm">环形缓冲的判空/判满怎么写才不出错</span>
+    保留一个空位：<code data-page-node-id="Wm0Rl5bYWMCtTGnlke6Y0O">next = (head + 1) % SIZE</code>，当 <code data-page-node-id="VgiWysihmOM3hQgBBzJ5dC">next == tail</code> 时认定为满，<strong data-page-node-id="ssjYAEiSlqKQ0rFWXeF9HM">静默丢字节</strong>而不是覆盖。这样做的好处是"满"和"空"两个状态不会混淆（如果允许写满，<code data-page-node-id="tYKNPEBttzaJiJ74cKDZES">head == tail</code> 就同时是满和空了，没法区分）。
+  </div>
+
+  <h4 data-page-node-id="9t276c4NA4BEYRXupSG7ZD">协议为什么用 ASCII 行协议</h4>
+  <p data-page-node-id="KRPKzDTvCQAQZe1he6mYJH">对二进制协议来说，ASCII 明文协议的"体积效率"很差。但本项目选它的理由很实在：</p>
+  <ul data-page-node-id="4iiiVH3ggJxPKdeaUgAY8F">
+    <li data-page-node-id="lJYeZ8QbKAYDL2rgzDacQU"><strong data-page-node-id="Epiin3J5CDdXl8wbiJa9lc">可以在串口助手里直接手敲</strong>调试，不需要写上位机</li>
+    <li data-page-node-id="2FjDk6BSNJKTKosQzP8mpz">出错时肉眼就能看出问题，不用拿十六进制对照表</li>
+    <li data-page-node-id="2D9LBIcoUJl65esbNJtX6B">数据量极小（每 200 ms 约 40 字节），占用带宽可以忽略</li>
+  </ul>
+  <p data-page-node-id="Gxa0BHQ4jfPzmpP6zZfWlb">如果以后要传波形数据（每秒几万点），那才需要换成二进制帧 + 校验和。</p>
+
+  <h3 data-page-node-id="x0NBLDcpeh43zngg4UICwC">4.2 OLED 为什么用软件 I2C</h3>
+
+  <p data-page-node-id="uPWuhMBA8Km2ncBuQZRzIC">PB6/PB7 <strong data-page-node-id="7N6eFcl2BGJUrGxeOHO2HQ">恰好就是硬件 I2C1 的默认引脚</strong> —— 所以这里本来就有一个选择：用硬件 I2C1，还是用 GPIO 模拟。</p>
+
+  <div class="grid2" data-page-node-id="ELqzrHBKioSjVcXGK4bW3V">
+    <div class="card" style="border-left:4px solid var(--teal);" data-page-node-id="OCYq0WfZ20Rp3hkApfgyCa">
+      <h4 style="margin-top:0;" data-page-node-id="YeeZ89RB8pYRdZccuUatvP">选了软件 I2C（GPIO 模拟）</h4>
+      <ul style="font-size:13.8px;margin:4px 0;" data-page-node-id="HFDx3qFLmA9233M6ROMto8">
+        <li data-page-node-id="PVnzoOEj8hn6dN55YZgG69">STM32F1 的硬件 I2C 有历史遗留的卡死/总线锁死问题（errata 文档里有记录），调试时很难定位</li>
+        <li data-page-node-id="U7B8CUanhIhPOtNKVokmFG">软件 I2C 的时序完全可控，出问题一眼能看出是哪一位</li>
+        <li data-page-node-id="kk2H33MDqVFpJo3iOnUPwe">换到别的单片机可以整段复制，不受外设差异影响</li>
+      </ul>
+    </div>
+    <div class="card" style="border-left:4px solid var(--amber);" data-page-node-id="hakA3HoWU2utZUj89SUWye">
+      <h4 style="margin-top:0;" data-page-node-id="kKjvYKsLDkmIhFUkFoSpIn">代价与注意点</h4>
+      <ul style="font-size:13.8px;margin:4px 0;" data-page-node-id="B1lGGYId5D0cOFUZqzC73H">
+        <li data-page-node-id="65G4WFfLF8AZMFH5r2nTb6">占用 CPU 时间（但 OLED 只 500 ms 刷一次，影响极小）</li>
+        <li data-page-node-id="dIf94QFfYZFNMT24Oa4Fmh"><strong data-page-node-id="wEcGpEkDMPNcxVBY1duI5y">必须配成开漏输出 <code data-page-node-id="iDLDotF6ibmE8i1ib4b7ft">GPIO_Mode_Out_OD</code></strong>，因为 I2C 总线是"线与"结构，多个设备共用一根线，只能靠上拉电阻拉高</li>
+        <li data-page-node-id="SqS4JhVrYH2umlt8i2skAU">总线上需要上拉电阻（OLED 模块通常已自带 4.7 kΩ）</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note warn" data-page-node-id="X8leCSB4M65rtAybDzeZw7">
+    <span class="t" data-page-node-id="DCraRaKgG08IzAOWlBcPbK">文档里曾经写错的一处</span>
+    <code data-page-node-id="0jlHCkxvfdptLj6jSoNzKm">docs/hardware.md</code> 最初把 PB6/PB7 记成了"推挽输出"，但代码里实际是 <code data-page-node-id="axSDKsMtcAu7PxtTLr51CX">GPIO_Mode_Out_OD</code> 开漏 —— <strong data-page-node-id="HwXevEKt6ZRmSQ72fPM2JX">代码是对的，文档写错了</strong>。这类"文档与实践脱节"的问题在长期项目里很常见，所以那份文档开头特意写了一句：<em data-page-node-id="ykEP9KObqm5X2YiyEV8tkm">修改硬件连接后必须同步更新本文档与 README 的引脚表</em>。
+  </div>
+
+  <h3 data-page-node-id="6MqeQmQfbNdy7mzSVQSnfe">4.3 板载 LED 为什么用 PC13</h3>
+
+  <p data-page-node-id="X1i7pEJhrB31HoBBT8PoRI">需要一个"程序还活着"的指示，最省事的做法是用最小系统板上已经焊好的那颗 LED —— 它在 PC13，<strong data-page-node-id="crJDKuBnLzCIrxleqh1CiY">低电平点亮</strong>（阳极接 3V3，阴极接 PC13）。</p>
+
+  <p data-page-node-id="8MGMDKzPCpOCcdVzuRkS2i">关键在于<strong data-page-node-id="s8VAN3ZI9fxRiY62758cSH">它不占用任何本该给别的功能的引脚</strong>。原工程曾经把状态灯放在 PA1/PA2，结果和 PWM 正面撞车 —— 这就是"选型时忘了查占用表"的代价。另外注意 PC13 的驱动能力很弱（数据手册标注只能小电流），推挽输出直接驱动 LED 是可以的，但不能拿来驱动大负载。</p>
+</section>
+
+<!-- ================= 5 ================= -->
+<section id="s5" data-page-node-id="noXNAiHW936bW2ju067xxG">
+  <h2 data-page-node-id="XQLPiTBLqO8qEMqeY17ky5">5 · 分步实现时间线<span class="sub" data-page-node-id="cUNpqpl7S8hjaMaIYTZ3VQ">如果重来一次，我会按这个顺序写</span></h2>
+
+  <p data-page-node-id="yD6yKOaWtodBxXgTfd2IVT">顺序不是随便排的，遵循一条原则：<strong data-page-node-id="i7XLbFn7bZHH2toaz3IEUJ">每一步都必须能独立验证</strong>。写完不能立刻看到效果的东西，最后一定会变成"不知道哪里错"的一大坨。</p>
+
+  <div class="tl" data-page-node-id="MGy5wvZWppVLRziSAQq7Tc">
+
+    <div class="tl-item done" data-page-node-id="tWGvZMSPSCv69p8NC8gdDR">
+      <h4 data-page-node-id="vtxn9dfrhVzpwiubvSAsFP">阶段 0　需求翻译与资源规划</h4>
+      <div class="tl-meta" data-page-node-id="4GHHIfRqEfvymJmFEf0DK4">产出：一张手写的占用表 · 不写任何代码</div>
+      <p data-page-node-id="uUC2aPBd9IImkFkOCforJv">把"光控灯"翻译成三路信号（模拟量、可调方波、串行数据），然后按第 1 节的四步法给每一路分配外设。这一步花 20 分钟，能省掉后面几小时的返工。</p>
+      <p data-page-node-id="BOALoMwEWReHnvLyuY1gQL"><strong data-page-node-id="aROsKSBVWm4co1uxoVcPLj">验证方法：</strong>把占用表拿给"假想的另一个模块"检查一遍 —— 每个引脚、每个外设都只能出现在一行里。</p>
+    </div>
+
+    <div class="tl-item done" data-page-node-id="OHsyrFDrhvB0Hh0VpLDg9H">
+      <h4 data-page-node-id="5cYPkL8Ygpy7VMterbzkbA">阶段 1　最小可运行骨架：时钟 + Delay + 串口</h4>
+      <div class="tl-meta" data-page-node-id="xtVw5mXT84JsS4f8Q0rMy3">验证：串口能收到一行字</div>
+      <p data-page-node-id="d8Qpjd0BtdHwaWOJiddpdQ">先建立"能跟外界说话"的能力。<code data-page-node-id="ILBEQBOZOUKewNsG5y9jE1">SystemInit()</code> 把主频配到 72 MHz，Delay 提供微秒/毫秒级等待，串口能发字符串 —— 有这三样，之后所有模块的调试都有输出可看。</p>
+      <p data-page-node-id="BNXxgeBRBm7tHpO0mSOMhf"><strong data-page-node-id="7QmjBcx4Bl7BtHGQkrfmPo">为什么排第一：</strong>串口是后面所有调试的眼睛。没有它，只能靠"灯亮不亮"猜，效率差一个数量级。</p>
+    </div>
+
+    <div class="tl-item done" data-page-node-id="wTXO8rEkDIzGOCHOlBlltH">
+      <h4 data-page-node-id="2Tlh3tC7cIILAwE2OVQqGA">阶段 2　ADC + DMA 采集光敏</h4>
+      <div class="tl-meta" data-page-node-id="Q5J60kFbIjFj9LnC8iktaE">验证：串口打印的 ADC 值随遮挡变化</div>
+      <p data-page-node-id="wRl9OX0XTmeXYe0bYuIkDd">配 GPIOA-PA0 为模拟输入 → 配 DMA1_CH1 循环模式 → 配 ADC1 连续转换、55.5 周期采样 → 校准 → 软件触发。主循环里取平均值打印出来。</p>
+      <p data-page-node-id="mIyO26PAa8566eF9UfWpBB"><strong data-page-node-id="xE0nxwBKJ9hTtm9OEEHWzO">关键抉择：</strong>采样时间必须给足（3.3 节）；DMA 通道是硬件固定的，只能查表得到。</p>
+      <p data-page-node-id="eCBeU1QGmbybQcI3ARUXhG"><strong data-page-node-id="YhGnqrxGhG7MQhCsckTFev">为什么排在 PWM 前面：</strong>先拿到"输入"，才能谈"输出多少"。总要先知道环境有多暗。</p>
+    </div>
+
+    <div class="tl-item done" data-page-node-id="0c8Dd2kAJtODC3szIsY2eE">
+      <h4 data-page-node-id="TsfF1l2slBQTfqEzZgAdGd">阶段 3　TIM2 PWM 驱动 LED</h4>
+      <div class="tl-meta" data-page-node-id="xO9bCaEvY5KOlDua5mU14v">验证：串口发指令能把灯的亮度改掉</div>
+      <p data-page-node-id="Hd2RWZnrds4PlEo2b9xI3q">PA1 配复用推挽 → TIM2 时基 72 分频、ARR = 999 → 输出比较 CH2 用 PWM1 模式 → 先手动调 <code data-page-node-id="9HEWdLe1pNT4kiajt4rZXl">PWM_SetDuty()</code> 试出灯的响应曲线。</p>
+      <p data-page-node-id="GchzKFzBs3qN0NWeNYVNO9"><strong data-page-node-id="ojriAqN1OyiyhwPHAhzTBD">最该先做的一件事：</strong>确认"LED 接法是拉电流还是灌电流"。接法反了会出现"占空比越大反而越暗"，这时候改极性比改接线省事（改 <code data-page-node-id="CcHYsEyLNHKN9iUwi3lWy3">TIM_OCPolarity_High</code> 为 <code data-page-node-id="DhV2FU8KNB8Z5ouWxdLGY1">Low</code>）。</p>
+    </div>
+
+    <div class="tl-item done" data-page-node-id="IqA83sNNldk7H8Q5J5Anb4">
+      <h4 data-page-node-id="qNkzEHgFNt1Zfrt4WCKrTD">阶段 4　连接输入输出：映射函数</h4>
+      <div class="tl-meta" data-page-node-id="X1ySas4DpcgnY6NazzJX5c">验证：遮光 → 灯亮</div>
+      <p data-page-node-id="FS8j5YDWAChgcfEPhqI7Cd">把 ADC 值映射成亮度百分比。用两个标定端点做线性插值，公式设计成<strong data-page-node-id="qE6WLCMi5bXBYucamac6Et">对方向免疫</strong> —— 不管"暗对应高 ADC"还是"暗对应低 ADC"，都不用改代码。</p>
+      <div class="codebox" data-page-node-id="4hzLGSUOCenzpNjn9QgAoS">
+        <div class="cbar" data-page-node-id="cWLjFyEFw2YUDBJn0kqMRb"><span data-page-node-id="Zk6kMbKYAdcKRNew3VKcWD">Hardware/LightSensor.c</span><em data-page-node-id="XhN3VlXr5X7UCKheNIVeAG">分子分母同号变化，方向自动适配</em></div>
+<pre data-page-node-id="tkC633AXNaJJYHd029tIaV">uint8_t <span class="f" data-page-node-id="bFeMm2WXOmdh8hQ9esaTmz">LightSensor_ToDuty</span>(uint16_t adc)
+{
+    int32_t denominator = (int32_t)LIGHT_ADC_DARK - (int32_t)LIGHT_ADC_BRIGHT;
+    int32_t numerator   = ((int32_t)adc - (int32_t)LIGHT_ADC_BRIGHT) * <span class="n" data-page-node-id="VM9iTkpAZKMLIODBKlJffJ">100</span>;
+    int32_t duty;
+
+    <span class="k" data-page-node-id="yyC2KOD1HE6tQ11zTzJv1l">if</span> (denominator == <span class="n" data-page-node-id="DCSO1MgpVHmUII6nffrZL0">0</span>) { <span class="k" data-page-node-id="SjMhxWUwAc2F4FsuyQ849m">return</span> <span class="n" data-page-node-id="1jGPcsCPBtJPZnlwybX2VZ">0</span>; }        <span class="c" data-page-node-id="HSDCJc7o8tnOKoQv3JCIwA">/* 防除零：两个端点不能相等 */</span>
+
+    duty = numerator / denominator;              <span class="c" data-page-node-id="Em4VkrX1DGuhGVFhLrul0M">/* 负数会向零截断，所以下面必须钳位 */</span>
+
+    <span class="k" data-page-node-id="76JuSwnwBVhWZQ93ME46N5">if</span> (duty &lt; <span class="n" data-page-node-id="46lQYjoheMTBUSvN2wjGcs">0</span>)   { duty = <span class="n" data-page-node-id="dR4FXsVDwDC5c2D58nTbd1">0</span>; }
+    <span class="k" data-page-node-id="6emkoAdV8TgHFLWrL3oPwV">if</span> (duty &gt; <span class="n" data-page-node-id="JToghGHso149b1ibGU9U9Z">100</span>) { duty = <span class="n" data-page-node-id="wvZL8SZjGc5wNbPRP4VwpA">100</span>; }
+    <span class="k" data-page-node-id="DC26M1uSj4KP4MZyUgfU4Q">return</span> (uint8_t)duty;
+}</pre>
+      </div>
+      <p data-page-node-id="NyZEiCQ68dJV5BFyoxeYDy"><strong data-page-node-id="fj8LaVtDsP2NeAPHBMOspa">为什么写成这样而不是 <code data-page-node-id="DoPyHZUsH368f3gr3ep0kE">100 - x</code>：</strong>如果以后换成"光照越强灯越亮"的场景，只要把两个端点宏对调就行，函数体一个字都不用改。</p>
+    </div>
+
+    <div class="tl-item done" data-page-node-id="6hBoRbHVDlDe1c53hwsUgA">
+      <h4 data-page-node-id="jPbn8MuDPLM2dFv7xxvL6C">阶段 5　把渐变改成非阻塞状态机</h4>
+      <div class="tl-meta" data-page-node-id="CX1SU25DFmrgLZGji3ePAX">验证：渐变过程中串口依然秒回</div>
+      <p data-page-node-id="oHEfBjtFec28rUCLPidqzG">原来的写法是"设一个目标值，然后 <code data-page-node-id="Ib8DVfGJZu0oBjX4Ty1S7s">delay_ms(10)</code> 循环逼近"，带两个致命问题：阻塞（期间串口失联）和耦合（调光模块自己去调 PWM 初始化）。改法是把渐变拆成<strong data-page-node-id="5P32yhiDmuigYgjJvlOBj4">一次调用只走一小步</strong>的 <code data-page-node-id="siIVmQNuyr0FfHzM6PhZjq">CtLED_Update()</code>，由主循环每 10 ms 调一次。</p>
+      <div class="codebox" data-page-node-id="f6I55QEuKIpDJ14nQ4hRmF">
+        <div class="cbar" data-page-node-id="FNq3rqW7u0TL0ms4dmCnIh"><span data-page-node-id="pglEELxIHdgdLjJHoqu6hl">Hardware/CtLED.c</span><em data-page-node-id="ojEXFkI9sqSip9nxFSrpBk">一次调用 = 走一步 = 立刻返回</em></div>
+<pre data-page-node-id="ELuDqSadwTqcLKNom3Wgza"><span class="k" data-page-node-id="CKeA3iaq8BfiwHlF9mdjkz">void</span> <span class="f" data-page-node-id="sQuDLIVGiGQ3yyhy1hw352">CtLED_Update</span>(<span class="k" data-page-node-id="EA83ULKFiou90WSZvX8Anl">void</span>)
+{
+    <span class="k" data-page-node-id="gxjee61rJPvmdDzEf6F4DT">if</span> (s_currentDuty == s_targetDuty) { <span class="k" data-page-node-id="xC68VFmjffxht2j9HeeK7V">return</span>; }   <span class="c" data-page-node-id="hDFBCVUTpVtS5uhaFaEG1g">/* 已经到了，什么都不做 */</span>
+
+    <span class="k" data-page-node-id="obkcSN66HAAN8As6qK4HuX">if</span> (s_currentDuty &lt; s_targetDuty)
+    {
+        s_currentDuty += GRADIENT_STEP;                    <span class="c" data-page-node-id="LjyLlzWG1HmjxHPFzayky7">/* 每 10 ms 走 2% */</span>
+        <span class="k" data-page-node-id="n81vAO0dJTEoAJ2zCisPmn">if</span> (s_currentDuty &gt; s_targetDuty) { s_currentDuty = s_targetDuty; }
+    }
+    <span class="k" data-page-node-id="Ko5EVVux9PsfmnEU8d0Q81">else</span>
+    {
+        <span class="k" data-page-node-id="ZlEGHF0P3awtEbkPMX26ee">if</span> (s_currentDuty &gt;= GRADIENT_STEP) { s_currentDuty -= GRADIENT_STEP; }
+        <span class="k" data-page-node-id="xuNAM1piQJIkuQRfKsoPnt">else</span> { s_currentDuty = <span class="n" data-page-node-id="xIEzytIBPhu078YPvEKxLt">0</span>; }
+        <span class="k" data-page-node-id="8qmzcftfwqUXqjsg829DE5">if</span> (s_currentDuty &lt; s_targetDuty) { s_currentDuty = s_targetDuty; }
+    }
+
+    <span class="f" data-page-node-id="f6KM7lgjE23cFj6K8zZQ0S">PWM_SetDuty</span>(<span class="f" data-page-node-id="kIcGpmK5CEXkZNvcdTVlFx">PWM_PERCENT_TO_DUTY</span>(s_currentDuty));
+}</pre>
+      </div>
+      <div class="note ok" data-page-node-id="etL25CtXF4Sydn88pjSzhL">
+        <span class="t" data-page-node-id="5AA7pzjkEnb8W8BbkIx3bf">注意 <code data-page-node-id="hmN4uWDEomxA642wxjFkQk">else</code> 分支里那两个 <code data-page-node-id="8caPHhcdLOmIPns1T7HIHo">if</code></span>
+        无符号数递减时如果不加保护，<code data-page-node-id="B6qLibyTpiHAlTNddktob0">0 - 2</code> 会变成 65534，灯会瞬间爆亮。<strong data-page-node-id="Se7kgsmBdnyOmNsQSQt6gu">"向下走的时候要防下溢，向上走的时候要防上溢"</strong> —— 两边的钳位一个都不能省。
+      </div>
+    </div>
+
+    <div class="tl-item done" data-page-node-id="UEYyNCH2iazxn6qZegTSKz">
+      <h4 data-page-node-id="QzEkjkmfVv5vRTTgsIIPVV">阶段 6　应用层状态机：AUTO / PC 双模式</h4>
+      <div class="tl-meta" data-page-node-id="2zotDbIZfTpu9YNUBDz34S">验证：PC 模式下遮光，灯纹丝不动</div>
+      <p data-page-node-id="29dDPC84gUoLc4chcEi6i0">把"谁来决定亮度"这个判断集中到一个地方。核心是：<strong data-page-node-id="jTRHsf7L8UHpAR2xXovIaE">PC 模式下，光敏映射函数在代码路径上根本不会被调用</strong>。</p>
+      <div class="codebox" data-page-node-id="0TXTKrk2UtNgzQWYnKnX3h">
+        <div class="cbar" data-page-node-id="eDlfiWEC46plubHbxA5Izq"><span data-page-node-id="GqrquKljHZ614XrrvRdv2m">User/App.c</span><em data-page-node-id="dBlV51t9GCo5VVemg6aliS">模式分支是"零调用"，不是"算了但不用"</em></div>
+<pre data-page-node-id="ZthijHm3vYXOhLUEqXqeWp"><span class="k" data-page-node-id="wORnnR4WSfOH5He2evAXRl">void</span> <span class="f" data-page-node-id="q1oAR3kVQFG0DP0ManMuCh">App_Process</span>(<span class="k" data-page-node-id="1Zu0t7tbqFsmlArtQRqVUE">void</span>)
+{
+    <span class="c" data-page-node-id="Ronnm7w7XIBetnQQpFYmWw">/* 1. 串口命令优先级最高 */</span>
+    <span class="k" data-page-node-id="iAaVvwac1cNocAJzhKllPs">if</span> (<span class="f" data-page-node-id="ZZAPuCXaooAcSzCGnhHu8t">Serial_Poll</span>()) { <span class="f" data-page-node-id="2W0ez1zjLl9C56ZYkOauU3">App_HandleCommand</span>(<span class="f" data-page-node-id="lwAfjdaEnpqo7q2ZQhHG4v">Serial_GetLine</span>()); }
+
+    <span class="c" data-page-node-id="uYzzWKcXvTcgPaAcaaNdYF">/* 2. 取最新的 ADC 平均值（DMA 在后台一直刷新缓冲） */</span>
+    s_adcValue = <span class="f" data-page-node-id="HygPAJjJZfqa9Sr8oFKM4O">LightSensor_GetRaw</span>();
+
+    <span class="c" data-page-node-id="oiO3ttn5Ypb9XEDA95VSSD">/* 3. 模式逻辑 —— 这里就是"PC 模式不受光照影响"的实现 */</span>
+    <span class="k" data-page-node-id="Dbp28GIzP6nIAoC1gLGFTN">if</span> (s_mode == APP_MODE_AUTO)
+    {
+        <span class="f" data-page-node-id="BG9lGLqErjwMUXLWZSJIKy">CtLED_SetTarget</span>(<span class="f" data-page-node-id="tiFEO1TxCvdmBIk16HQPaN">LightSensor_ToDuty</span>(s_adcValue));   <span class="c" data-page-node-id="8yve3RCvDwAb0RBg9SbCAP">/* 只有 AUTO 才会走这一行 */</span>
+    }
+    <span class="k" data-page-node-id="Z6SIc4rNKwxxKXOxdtMpOP">else</span> <span class="k" data-page-node-id="EE9YdNxglZAFJp88FmAZeI">if</span> ((<span class="f" data-page-node-id="pWPCa0jFYc2OQIiKOAUxbr">Timer_GetTick</span>() - s_lastCommandTick) &gt; APP_PC_TIMEOUT_MS)
+    {
+        <span class="f" data-page-node-id="G9MmtgNEmPsOJ966s9a56H">App_SetMode</span>(APP_MODE_AUTO);                            <span class="c" data-page-node-id="XOynRAaUxgJs9IXUbTPcSl">/* 看门狗：3 秒没指令就交还控制权 */</span>
+        <span class="f" data-page-node-id="bP7GIGZcMzTu2MUUZn30MF">Serial_SendString</span>(<span class="s" data-page-node-id="EcFdhADFgRdbqFrR5KZDAQ">"EVT,pc timeout\r\n"</span>);
+    }
+
+    <span class="c" data-page-node-id="Dxlswm2llkYol140oBM2EB">/* 4~7. 渐变 / 上报 / 刷屏 / 心跳，各自按自己的周期触发 */</span>
+    <span class="k" data-page-node-id="7YG7bVgjUgNsCoxyCbB6I7">if</span> (<span class="f" data-page-node-id="L7SymfSdB8SAMC0y585syh">Timer_IsElapsed</span>(&amp;s_lastGradient, APP_GRADIENT_PERIOD_MS)) { <span class="f" data-page-node-id="yZAgehFaHtm6zGpOio0bk9">CtLED_Update</span>(); }
+    <span class="k" data-page-node-id="4O3ShOvGE1EAFBipAD5KiW">if</span> (<span class="f" data-page-node-id="fIUpBBZmR2dHL98CDBKQrb">Timer_IsElapsed</span>(&amp;s_lastReport,   APP_REPORT_PERIOD_MS))   { <span class="f" data-page-node-id="gmav8GjdIvZAhsJXGYM0iP">App_SendStatus</span>(); }
+    <span class="k" data-page-node-id="iR2fr9SjD0vhPyrd93jcE5">if</span> (<span class="f" data-page-node-id="j0JZXH09Qjku24lMqMAhOD">Timer_IsElapsed</span>(&amp;s_lastDisplay,  APP_DISPLAY_PERIOD_MS))  { <span class="f" data-page-node-id="L2SDmmVLBbsqawEkN9TV4b">App_UpdateDisplay</span>(); }
+    <span class="k" data-page-node-id="3qJsXtYbCZAc7vHfs4ETub">if</span> (<span class="f" data-page-node-id="l9DKOfblXmFSO4aQuEaFlU">Timer_IsElapsed</span>(&amp;s_lastLed,      APP_LED_PERIOD_MS))      { <span class="f" data-page-node-id="217Yrfy9PpRlG7WM4q9Qr3">LED_Toggle</span>(); }
+}</pre>
+      </div>
+      <p data-page-node-id="YuC7iwM4HA1QS3paUfGA3g"><strong data-page-node-id="lFAKW0cbD6ANkQNvKA2mfS">设计要点：</strong>每个任务都是"查一下时间够不够 → 够就做一次 → 立刻返回"。没有任何一处 <code data-page-node-id="JSubjt0BvB8h3uhMmncvB3">while</code> 等待，所以任何一个任务出问题都不会把别的任务拖死。这就是所谓<strong data-page-node-id="xoUB3kGpza1BIydJCWBsui">前后台架构</strong>：后台是中断和 DMA，前台是这个函数。</p>
+    </div>
+
+    <div class="tl-item" data-page-node-id="LvBSZB7BmQTWa3HdX6eSoc">
+      <h4 data-page-node-id="yCirJqxG5Vo2Auk10oDJXu">阶段 7　（未完成）按键手动调光</h4>
+      <div class="tl-meta" data-page-node-id="g8HsBOCcOuTh281snJ2EIB">待办：PB1 / PB11</div>
+      <p data-page-node-id="iMb0jrZYpajYT23M3MxIH3"><code data-page-node-id="omjXBdEWRy3uoE3dVwT1yI">Key.c</code> 已经写好了，但 <code data-page-node-id="mm7PQUXI2DtIR9Hs9HQ5MQ">App_Init()</code> 里<strong data-page-node-id="9nwodStIyXh3sgbL1hJvad">没有调用 <code data-page-node-id="xyKBCA3YoBHBR1TBYLsNvR">Key_Init()</code></strong>，所以按键完全没接入。而且它现在的消抖用的是阻塞 <code data-page-node-id="VtpUGgEpsUcNufJw9IhcZs">while</code> 等待，直接接进主循环会拖慢串口响应 —— 需要先改写成"记录上次按下时间戳"的非阻塞形式，才能和现有架构兼容。</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 6 ================= -->
+<section id="s6" data-page-node-id="6E0085dLHE7fQG6cFZBgCp">
+  <h2 data-page-node-id="lVgwFreLIEcCWBtDQ6PuZD">6 · 踩过的 7 个坑<span class="sub" data-page-node-id="mBi2eqs4lVJLnbPBWCg82T">每一个都留下了"怎么发现的"记录</span></h2>
+
+  <p data-page-node-id="hcsmwAfmlP0VhElMATWoZ0">前 4 个是<strong data-page-node-id="7muDbCGXKTCg2pAsLBsZIn">架构性错误</strong>（代码单独能编译通过，合起来必崩）；后 3 个是<strong data-page-node-id="kiVQZUiDIwW5tjjvGNVZlh">工具链问题</strong>（跟代码质量无关，但会白白耗掉一晚上）。</p>
+
+  <h3 data-page-node-id="boPDZbWlO8zAzdM7QE5nyY">坑 1　TIM2 被两个模块同时初始化</h3>
+  <div class="card" style="border-left:4px solid var(--red);" data-page-node-id="wDq3wxyT9MnII3XZOG72jN">
+    <div class="grid2" data-page-node-id="85kV95mGrUxEESkZZQ6fNm">
+      <div data-page-node-id="yh72h6I2vDQG5dxjwmSDSL">
+        <h4 style="margin-top:0;color:var(--red);" data-page-node-id="LqjYUk3ftE4TW8dcWqtVON">症状</h4>
+        <p style="font-size:13.8px;" data-page-node-id="o8IA9fg1tB1Oo7rfWDUvQB">PWM 输出和系统时基只有一个能用，另一个完全失效；换初始化顺序，失效的模块也跟着换。</p>
+        <h4 style="color:var(--red);" data-page-node-id="qq8rags1W1LzdhW2PiQ5t4">根因</h4>
+        <p style="font-size:13.8px;" data-page-node-id="unK01oZqD6UPynuOkHpTXF"><code data-page-node-id="mESzVnw2aV6rAOdwYXXORD">Timer.c</code> 用 <code data-page-node-id="lvPQksiWTkc61MgdRdIxRS">TIM_TimeBaseInit(TIM2, …)</code> 配时基，<code data-page-node-id="iVf1GwqccNJcXGzx3RcR2P">PWM.c</code> 也用 <code data-page-node-id="jdiXu97RaqBPYIA3XN3FGW">TIM_TimeBaseInit(TIM2, …)</code> 配 PWM。后者把前者的 <code data-page-node-id="zyF7DM3kfDGD7hXOfgps7V">ARR/PSC</code> 全写掉；而 <code data-page-node-id="1Y12rHxgsFg73hbh4bouh6">TIM_Cmd(TIM2, ENABLE)</code> 谁最后调用谁说了算。</p>
+      </div>
+      <div data-page-node-id="oOUQ5ByU3CKY9jXYPfAYFT">
+        <h4 style="margin-top:0;color:var(--teal);" data-page-node-id="tPT4FxRcayDOY1BL0iUgGy">怎么发现的</h4>
+        <p style="font-size:13.8px;" data-page-node-id="HWawK3xf0RlURbFhH6iBQF">把所有模块的源码放在一起 grep 一遍外设名，<code data-page-node-id="Ruj9OssxEOiV0HvdxMxre1">TIM2</code> 出现了两次，出现在两个不同文件里。这类问题<strong data-page-node-id="OZDkGXoxy3DRDthAye2woz">靠读单个文件永远发现不了</strong>。</p>
+        <h4 style="color:var(--teal);" data-page-node-id="8u2ImToaTfKgfk4Q8IDdMN">修正</h4>
+        <p style="font-size:13.8px;" data-page-node-id="0CXgnnr02Vt5E4EIRS5AeI">时基改用 TIM3，PWM 独占 TIM2。并在两个文件头部各写一行注释声明归属，防止以后有人再加一个"顺手用一下 TIM2"的模块。</p>
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="A7BB9CZ3LfUeV0rNJkJW2F">坑 2　PA0 被配了两次，模式还不同</h3>
+  <div class="card" style="border-left:4px solid var(--red);" data-page-node-id="noBJG6Fo33hyJROy9LChzH">
+    <p data-page-node-id="nuUZORo5wyglgvNwF6kHs8"><code data-page-node-id="jCOQWDb4dyYohWJZzoVEif">Timer.c</code> 把 PA0 配上拉输入（当时想拿它当外部时钟输入引脚），<code data-page-node-id="qdOfsU3MbxqiTGimUHeQbp">AD.c</code> 把 PA0 配成模拟输入。**后配的把先配的覆盖掉** —— 谁在后面取决于初始化的调用顺序，于是"ADC 读数不可信"这个现象时有时无，极难复现。</p>
+    <p data-page-node-id="ca73Dv2ebZlnSQ9C9Ny5Sc"><strong data-page-node-id="eIrmtQc73DadDxF24z3EoI">修正：</strong>PA0 只由 <code data-page-node-id="xF6w21ov7EIwjAmLM7HaGn">AD.c</code> 负责，配成 <code data-page-node-id="SMQTFEhWOlEp6muXYLqBCu">GPIO_Mode_AIN</code>。<strong data-page-node-id="xLWjUIlMeliEZ9GQDdMBPh">一个引脚只能有一个 owner</strong>，这是铁律。</p>
+  </div>
+
+  <h3 data-page-node-id="gat4TqyDSWgix1oI8IJpUO">坑 3　LED 模块抢走了 PWM 的引脚（这就是"灯一直亮"的真正原因）</h3>
+  <div class="card" style="border-left:4px solid var(--red);" data-page-node-id="2Z21vlFrqa08avBqlvcj1C">
+    <div class="grid2" data-page-node-id="kUIwINQlt1RNyEtJPxKR6A">
+      <div data-page-node-id="eyF7sK3DBWKGksnzrHDo32">
+        <h4 style="margin-top:0;color:var(--red);" data-page-node-id="76W92164KyyfTmslfnGCJo">症状</h4>
+        <p style="font-size:13.8px;" data-page-node-id="CmGLa4tx0x8vtJDpiN0kRl">调光不起作用，灯只会亮或灭，不会渐亮渐暗。</p>
+        <h4 style="color:var(--red);" data-page-node-id="OEjwT92yBRhhAWavCD3wLM">表面解释 vs 真正原因</h4>
+        <p style="font-size:13.8px;" data-page-node-id="gB1noRC8gjFDGBjM8Dx557">当时得到的解释是"人眼视觉暂留，1 kHz 太快看不出来" —— <strong data-page-node-id="RmFo4DZw6HuIqdbBvaFUQz">这个解释听着有道理，但完全不是原因</strong>。真正的原因是 <code data-page-node-id="QleqS9zDuiwyCjkf0V4hLC">LED.c</code> 把 PA1/PA2 配成了<strong data-page-node-id="PGicYrhjAzhf7JM4wExq1P">普通推挽输出</strong>，把定时器的复用功能覆盖掉了，PA1 上根本没有 PWM 波形，只剩 GPIO 电平。</p>
+      </div>
+      <div data-page-node-id="8yCvCL2mRHMaatrBoQBOKL">
+        <h4 style="margin-top:0;color:var(--teal);" data-page-node-id="4cMPKoeiV01jTOvK0NdYGy">怎么证伪的</h4>
+        <p style="font-size:13.8px;" data-page-node-id="8QX015OZwlF9oYvBF9LtXP">看代码顺序：<code data-page-node-id="Nic1U0sYy8vFOV1Vltl2YG">LED_Init()</code> 里 <code data-page-node-id="G0HWK3L4uExFM2EWq1HCc7">GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP</code>，引脚号 <code data-page-node-id="SYU4EWoteqGuyR2BLCU8N7">GPIO_Pin_1 | GPIO_Pin_2</code>。而 <code data-page-node-id="OW6N0yHDTOmu0zE7WaOlrv">PWM.c</code> 要的是 <code data-page-node-id="LS1GmlRXc5tpG5rbt2FqzZ">GPIO_Mode_AF_PP</code>。同一个引脚，一个要普通输出、一个要复用输出 —— 必然打架。</p>
+        <h4 style="color:var(--teal);" data-page-node-id="zAlk212JNDZ5whWS6f2YkR">修正</h4>
+        <p style="font-size:13.8px;" data-page-node-id="ZNgS9fIrrVJAOH3FI6PHYT">状态灯改到 <strong data-page-node-id="cjc9WzxC0uQL803zac7mLH">PC13</strong>（板上自带），PA1 专职 PWM。<strong data-page-node-id="V5Vn1WBKU1BR4iKdy7HmdS">教训：一个"听起来合理"的解释，如果不指向具体的代码行，大概率是错的。</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <h3 data-page-node-id="Rw4JKHhqU0G7rnAjipI9VC">坑 4　调光模块内部调 PWM 初始化 + 2 秒阻塞延时</h3>
+  <div class="card" style="border-left:4px solid var(--red);" data-page-node-id="sXbVm3D5D1CVVSIzBnARAV">
+    <p data-page-node-id="CyyXJROEma74V844DSlvMN">原 <code data-page-node-id="RxCbS1WhzD647Hl5WCuIwa">CtLED.c</code> 的 <code data-page-node-id="VahjCF3DbLXJHEoQSuaKCS">AD_LED()</code> 函数里，第一步是调用 <code data-page-node-id="3jwmHlqqjYpgSbBhmXH7Wm">PWM_Init()</code>，然后用 <code data-page-node-id="2zYKNPrE8XbfHu3H8wxXeZ">delay</code> 循环 2 秒来"渐变"。</p>
+    <ul data-page-node-id="vIF6aTxMIYEsbxrWBRDuRn">
+      <li data-page-node-id="TVOlsXtLLxtYBYgsBvidFq"><strong data-page-node-id="nk0bAVYXAaGPPlcYCA5Ruq">层次倒置</strong>：器件层（CtLED）不应该去初始化驱动层（PWM）—— 那是 <code data-page-node-id="tbA19G74q7r7bUTmS1gFtb">App_Init()</code> 的职责。每调一次亮度就重配一遍定时器，纯属浪费且容易出错。</li>
+      <li data-page-node-id="GzIZ5XYnVwtbW0WTV6I8Pp"><strong data-page-node-id="9PzxFZPBD7dXsuFbo8gQYQ">阻塞 2 秒</strong>：这 2 秒里串口收不到任何东西、OLED 不刷新、看门狗不喂。用户看到的现象是"发指令后程序像死了一样"。</li>
+    </ul>
+    <p data-page-node-id="iV2ikBfdNao1gKE49dovSS"><strong data-page-node-id="6IZnE5GfJ16CnxteALmjVY">修正：</strong><code data-page-node-id="94VOJDDaOpUZL3GuJHv3vx">PWM_Init()</code> 只在 <code data-page-node-id="VYUbTFmTYIGnLVr5pLAqfY">CtLED_Init()</code> 里调一次；渐变改成 5 阶段里的非阻塞状态机。<strong data-page-node-id="KqnQ6ywXWdHQiz7pbjX5mE">依赖方向永远是上层调下层，下层不回头调上层。</strong></p>
+  </div>
+
+  <h3 data-page-node-id="6xDbctlOVYlKAqkGkACsCX">坑 5　下载报 <code data-page-node-id="Q4qS5V7c13asOVEv1ZmvFQ">No ULINK2/ME Device found</code></h3>
+  <div class="card" style="border-left:4px solid var(--amber);" data-page-node-id="exY1WcFbsq1SFk0YWYa2Mq">
+    <p data-page-node-id="mVV6Qc3sCaCwdEbCQCATfG"><strong data-page-node-id="02CXqxqmCRKW2jSwFXBWe7">背景：</strong>Keil 把"用哪个下载器"存在 <code data-page-node-id="N7YlzSVFf7HJZwNTBKIG50">Project.uvoptx</code> 里。这个文件属于本机配置，通常被 <code data-page-node-id="q7p70998c91qLD2P6R6Tmv">.gitignore</code> 挡住不进仓库 —— 于是新克隆下来的工程<strong data-page-node-id="kwla7mDrQ9iggZBjhFyCqf">没有这个文件</strong>，Keil 会重新生成一份，默认值就是 <strong data-page-node-id="LHp2G9ESXKcEOQOCefA6zB">ULINK2/ME</strong>。</p>
+    <p data-page-node-id="yGZh4lGoSSB3zNBxyS6nvD"><strong data-page-node-id="aW6Acf7JIaH6ivsnzDckke">判据：</strong>对比原工程和副本的 <code data-page-node-id="h768dAamSXzEVF2TrgVtLO">uvoptx</code> 文件，发现只有三处不同：</p>
+    <div class="tw" data-page-node-id="qW4SywIfGLHzfSGuDBNGfl">
+      <table data-page-node-id="igHjhAAQFoPp9tipRBZZut">
+        <thead data-page-node-id="jaia0ZOP0nfGNhPSIHqljt"><tr data-page-node-id="ucUJ3wnC8rkJON0IS2Uic0"><th data-page-node-id="TjFOMz2PL0r6bFXRxljODf">配置项</th><th data-page-node-id="Dnmcmw2yFDAzhY9IzZvGwe">能正常下载的工程</th><th data-page-node-id="7iuCCbY4690pDpk7SXtgX2">报错的工程</th></tr></thead>
+        <tbody data-page-node-id="N1iu61FxS2V0i8zL9Yrgdn">
+          <tr data-page-node-id="58BECuqT5jMyHd2GtPfXuZ"><td data-page-node-id="iiqMHCJzknbaImmBGx3NEr"><code data-page-node-id="T9UCt6YneCXkN4WtmGD7MN">&lt;nTsel&gt;</code></td><td data-page-node-id="3qYLreheF9jPeHgFFQu5uP"><code data-page-node-id="ngwZlYqF7uE06Re31fPGSB">5</code></td><td data-page-node-id="3rf3YnnNLcWl5Qh4KsUxEF"><code data-page-node-id="noFdawGCA7ypjfmmTQvrC7">0</code></td></tr>
+          <tr data-page-node-id="iYqzlNXHBmQJBBfozKa4qJ"><td data-page-node-id="RZqvSCPZ6EhNG02i2muhPS"><code data-page-node-id="IJK35eF4rvLk9SL7kcFDn4">&lt;pMon&gt;</code></td><td data-page-node-id="CMwiROkcIdtzsmlcuFJxj0"><code data-page-node-id="gHG5ytA2fxpGOH2xqR6nxn">STLink\ST-LINKIII-KEIL_SWO.dll</code></td><td data-page-node-id="jQ9OVl54Az7itivsgA9Z5y"><code data-page-node-id="iMjMEfhMoOFEwiHB9QcpDw">BIN\UL2CM3.DLL</code></td></tr>
+          <tr data-page-node-id="5NPz1pCKSxKij4UTeiNCs3"><td data-page-node-id="LOn1AeZ1hALw6rQEZqslcD">驱动参数条目</td><td data-page-node-id="Klt0n3pzGSFpMDxcuh5rSk">有 ST-Link 条目</td><td data-page-node-id="xqCw8zhSyXO6xEY10admNf">整段缺失</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p data-page-node-id="9RS1lNhTor1DT7lhcbaENd"><strong data-page-node-id="wOcEN5ibOhzC0SBlVir7MF">修正：</strong>在 Keil 里 <code data-page-node-id="VeMDuOoHqbEMm4tFBGBlXS">Options for Target → Debug</code> 下拉框改成 <code data-page-node-id="xQ8mVKgWUgKPJ31gA2Ceyn">ST-Link Debugger</code>，<code data-page-node-id="sKxMhKu45StQBGPKFL9hlB">Settings</code> 里 <code data-page-node-id="m7T62NqGDyCi9VgLXDGRKj">Port</code> 选 <code data-page-node-id="F6cJgvopgJwuthGeKJ5IOZ">SW</code>，确定保存。<strong data-page-node-id="YAtBoLeyHuURwZmgSnlFct">改完记得点「确定」而不是「取消」</strong> —— 点取消所有改动都不保存，这是最容易反复栽的地方。</p>
+  </div>
+
+  <h3 data-page-node-id="1lkA1txNLUnlA1WkRItRDy">坑 6　编译报 <code data-page-node-id="5bNWupdAWAwC7tP4nAj0xU">#error: Please select first the target STM32F10x device</code></h3>
+  <div class="card" style="border-left:4px solid var(--amber);" data-page-node-id="U4IGDh05qR1bY57bD0OhFX">
+    <p data-page-node-id="AoyR51dkjiipSLsOks7Wv7"><strong data-page-node-id="KLZKD0YCuRrm2a5xXxrHuF">根因：</strong>工程的宏定义里只有 <code data-page-node-id="NWDVilk7dJZwGcmMgIbaUL">USE_STDPERIPH_DRIVER</code>，缺 <code data-page-node-id="pbBFayU5H0yEjoQxtl6cod">STM32F10X_MD</code>。<code data-page-node-id="GP6ahiH9QUgc3rHZdxMewC">Start/stm32f10x.h</code> 靠这个宏来判断芯片容量等级（小容量/中容量/大容量/互联型），没定义就直接 <code data-page-node-id="76ApsFNHDHZFsJCY1Hti5v">#error</code> 中断编译。</p>
+    <p data-page-node-id="eo1cIzQPKzqGo5o2PVJ988"><strong data-page-node-id="oqPzGXSK3HxrWk5H5FMojq">为什么原来没暴露：</strong>原工程的 <code data-page-node-id="clCU3yVztQSsmsZAMLErYy">stm32f10x.h</code> 里那行 <code data-page-node-id="bPm5PnAsXXdqNPFGQAaFFH">#define STM32F10X_MD</code> 是注释状态，一直靠"某些文件里恰好包含顺序不对"侥幸没触发。一旦真正全量编译就暴露了。</p>
+    <p data-page-node-id="NOnqc0q3StZjh0b5Fy9C9S"><strong data-page-node-id="2ruPVqPB3ufRgLysA9EHJU">修正：</strong><code data-page-node-id="fJG8eis7gSUTAGtEYwgZAo">Options for Target → C/C++ → Define</code> 填 <code data-page-node-id="DDTNFgAOSigx45G0j6zCsZ">USE_STDPERIPH_DRIVER,STM32F10X_MD</code>（英文逗号）。</p>
+    <div class="note info" style="margin-bottom:0;" data-page-node-id="EbYwxQGzcZtGbSg31ABdXR">
+      <span class="t" data-page-node-id="katW0W3T0mnrWg9U0YZWWh">这个坑的价值：提早用命令行编译验证</span>
+      与其在 Keil 里点了编译再等报错，不如直接用 Keil 自带的 <code data-page-node-id="o0M2T1DcdorXqwRWy48Nko">armcc</code> 命令行把工程编一遍 —— <strong data-page-node-id="BrBhTP4zTqHQGE7Ok5t9Jc">几秒钟就能把这类"配置缺失"的问题全抓出来</strong>，再打开 IDE 时就知道能过。
+    </div>
+  </div>
+
+  <h3 data-page-node-id="bwRa1EychDaCvG8Yx7vqLb">坑 7　Keil 开着的时候改工程文件，保存后被覆盖</h3>
+  <div class="card" style="border-left:4px solid var(--amber);" data-page-node-id="lQJzInJdapOlY3sIeVCVmQ">
+    <p data-page-node-id="zSfJeFHhlK6I4g6JyABMdG"><strong data-page-node-id="POzHXnwLNvTypaJzc2I60n">现象：</strong>已经改好的 <code data-page-node-id="bsmsIvIrrDIqq2IiAVW7pG">Project.uvprojx</code>（补了 <code data-page-node-id="WklGZhyvh2tPYFs4Opud7L">STM32F10X_MD</code>）和 <code data-page-node-id="Fluh2wF4ap9EooSas5auS7">Project.uvoptx</code>（改了下载器），过一会儿再看，<strong data-page-node-id="pUBm1NqupgdiLb7RyWurEv">全变回旧值了</strong>。</p>
+    <p data-page-node-id="Bmw2MGFAWnY3K8u0l2Ty6q"><strong data-page-node-id="BO51WKDFntReGaiGl2s4Wr">判据：</strong>看文件修改时间戳 —— 我的修改是 22:5x，而文件时间显示 23:15，整点被改写。</p>
+    <p data-page-node-id="HjuN9szXIjDscxElRohP7w"><strong data-page-node-id="DA8228jf8Xy8ZYdPwsNuAH">根因：</strong>Keil 把工程配置<strong data-page-node-id="XXc6l9vs3eQaoBvkTUuUkD">缓存在内存里</strong>。只要你在界面上动过任何设置（打开 Options 再确定、或者按 F7 触发自动保存），它就按内存里的旧状态<strong data-page-node-id="rHykZESprHdTRm3x44uzdJ">整体重写</strong>磁盘文件，你之前的外部修改全部作废。</p>
+    <p data-page-node-id="RtgvBGiWwVVFSOnRHuzvWD"><strong data-page-node-id="TwaBOPnbCJUCMYZr5sbCYH">结论（通用规则）：</strong>只要涉及 IDE 会管理的配置文件，<strong data-page-node-id="BO5AaN3y24TkH1TC7S5H0t">必须先让 IDE 完全退出</strong>，改完再重新打开；或者干脆全部在 IDE 界面里改。</p>
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section id="s7" data-page-node-id="xndAzUrM6HWwTxd3xZLskL">
+  <h2 data-page-node-id="saVLg432SiUIGARTrExxOF">7 · 参数是怎么算的<span class="sub" data-page-node-id="HhL8pI3c97UQCpCCZpzFj8">动手调一调，看数字怎么变</span></h2>
+
+  <p data-page-node-id="mb4MzF2AARG3KI7Wy5taGj">项目里所有"看起来像魔法数字"的常量，背后都是一两步乘除。下面两个计算器可以改参数实时算 —— <strong data-page-node-id="UjON7XWltuaI9LGmb9wt6c">试着故意填错，看看会撞上哪条约束</strong>。</p>
+
+  <div class="calc" data-page-node-id="JQOVQTa8PC4OOTW9HCnB0V">
+    <h3 style="margin-top:0;" data-page-node-id="RNNfNlPufnt1l0e1lK9Nks">7.1 PWM 频率与分辨率</h3>
+    <div class="calc-row" data-page-node-id="Agv3ORK37dWVLKfORlxBVl">
+      <div class="fld" data-page-node-id="x8MXEBLFdC2LH9COdzWLL8">
+        <label data-page-node-id="sHb5Qqi9ZYEbN9faoXPw3l">定时器时钟 (MHz)</label>
+        <input id="p-clk" type="number" value="72" data-page-node-id="sEN3IiORMGKEVWbYI7bkAl">
+      </div>
+      <div class="fld" data-page-node-id="FVOOfzrryh1LZxlb0KDDoZ">
+        <label data-page-node-id="WQchp52mdJ3OGsWFRWBngF">预分频寄存器 PSC</label>
+        <input id="p-psc" type="number" value="71" data-page-node-id="iUEKBbfaIG2imhC1zGUmg4">
+      </div>
+      <div class="fld" data-page-node-id="pqv7FYROkIMNQPh7rLUcY1">
+        <label data-page-node-id="n4tjs6bQCLFkxmzFPCssm8">自动重装寄存器 ARR</label>
+        <input id="p-arr" type="number" value="999" data-page-node-id="q2BO0jclGF8FYbhWXn4Mxj">
+      </div>
+    </div>
+    <div class="calc-out" id="p-out" data-page-node-id="s0gjtEq0FK7GyyCZV21Pp5"></div>
+    <div class="note info" style="margin-bottom:0;" data-page-node-id="W7rKVddkQxVjW6WmImSzO6">
+      <span class="t" data-page-node-id="XCfHFSALWbSxESk8oSVWPb">试试这几个值</span>
+      · <code data-page-node-id="8Qg4XjaMU5PyREyhAVgtkf">PSC=71, ARR=999</code> → 1 kHz / 1000 级（本项目）<br data-page-node-id="n1Id0PcHw91utGi0szZrtU">
+      · <code data-page-node-id="v4YylHOH6a8WGjrDRBAZBi">PSC=7,  ARR=999</code> → 10 kHz / 1000 级（更快，但没意义）<br data-page-node-id="lAorqKY00NzO3CWVrZiyD7">
+      · <code data-page-node-id="oFAa8mJlgBjd8TFRCvzCNO">PSC=71, ARR=99</code>  → 10 kHz / 100 级（暗部会跳变）<br data-page-node-id="2gQ3EoX5yioxCjTqzuD45B">
+      · <code data-page-node-id="MLWeY7DMkD75N0myvXS79D">PSC=71, ARR=9999</code> → <strong data-page-node-id="vUF18guFuR99gQ7EC2RghT">100 Hz，肉眼可见闪烁</strong><br data-page-node-id="GpJj1IGW7SeGhSBoLz0pjj">
+      · <code data-page-node-id="kKLeKVls7XoPudbhEqAtGT">PSC=0,  ARR=999</code> → 72 kHz，依然能出波形，但分辨率没变化，白费
+    </div>
+  </div>
+
+  <div class="calc" data-page-node-id="TZzw0CXo8RX6aGOvcynzw3">
+    <h3 style="margin-top:0;" data-page-node-id="GyPQLyGlVj9IDEUGDj3N6y">7.2 ADC 转换时间与采样率</h3>
+    <div class="calc-row" data-page-node-id="AB0v8RUfBCYR3XVtLDF1Dq">
+      <div class="fld" data-page-node-id="MIwEwNFvhYT8qEG1nOfs3o">
+        <label data-page-node-id="8n7p4owUjCUnql2yy6tOEE">APB2 时钟 (MHz)</label>
+        <input id="a-clk" type="number" value="72" data-page-node-id="Yrt9WiaKkItmlOpY6B5lBO">
+      </div>
+      <div class="fld" data-page-node-id="XQUq9m1RlK8eofLAbavAZE">
+        <label data-page-node-id="AwKakrMEeYMBpU2aW8rfaq">ADC 分频系数</label>
+        <select id="a-div" data-page-node-id="qfFg7ZEWDgkvWn9U6VzP6x">
+          <option value="2" data-page-node-id="7rSUQHig842NEARBrkmAQ4">Div2 → 36 MHz</option>
+          <option value="4" data-page-node-id="wAz2s5zoSvPtIjgwAypF3j">Div4 → 18 MHz</option>
+          <option value="6" selected data-page-node-id="CV9NQnVmTP41CFY5iBTZuP">Div6 → 12 MHz</option>
+          <option value="8" data-page-node-id="evIEgJNGztyNxSqjHWw6iT">Div8 → 9 MHz</option>
+        </select>
+      </div>
+      <div class="fld" data-page-node-id="hTte30vc9GDhwwvGrn0Nnt">
+        <label data-page-node-id="sOtWaAmIYicOhXmcFfzTFw">采样时间 (周期)</label>
+        <select id="a-smp" data-page-node-id="rkuRSLCQgEYLOVm7F7PI6W">
+          <option value="1.5" data-page-node-id="x5HqHbT05I8zJ2AXdii2e0">1.5</option>
+          <option value="7.5" data-page-node-id="xaZQTvh4Qm9nzNZPIbR8RE">7.5</option>
+          <option value="13.5" data-page-node-id="7wg675Pqx41c3cWmgUzdV8">13.5</option>
+          <option value="28.5" data-page-node-id="qtbGGHbwJPmb0B2UKgo4iq">28.5</option>
+          <option value="41.5" data-page-node-id="wQiKdYMIcxxyBFVu5xLM62">41.5</option>
+          <option value="55.5" selected data-page-node-id="7TNLn5MaUzyDoJe0C35zJr">55.5</option>
+          <option value="71.5" data-page-node-id="gTuXc960DUat0wFaLZrGzy">71.5</option>
+          <option value="239.5" data-page-node-id="cCuH79I1VEL4iiFYCxj4uh">239.5</option>
+        </select>
+      </div>
+    </div>
+    <div class="calc-out" id="a-out" data-page-node-id="xeYNQTIjMMU9wqbhLO0U7b"></div>
+    <div class="note warn" style="margin-bottom:0;" data-page-node-id="ACqDhB7aJnPqtTXxsFywcB">
+      <span class="t" data-page-node-id="owz3sMIXhg0rXnpryXR5Ui">试试把分频改成 Div2 或 Div4</span>
+      你会看到 ADCCLK 超过 14 MHz —— <strong data-page-node-id="lCVMZ9oiTnLwWbhIWJvQ6m">这是芯片规定的硬上限，超了精度不受保证</strong>。这就是为什么代码里只能选 Div6（12 MHz）或 Div8（9 MHz）。
+    </div>
+  </div>
+
+  <div class="calc" data-page-node-id="VnYEPiRQn51as4TQzdq5yS">
+    <h3 style="margin-top:0;" data-page-node-id="CWcOhQ3mQ5FFXmoBPX0IKx">7.3 渐变速度与超时时间</h3>
+    <div class="calc-row" data-page-node-id="adnPPZc07DfyjRob6K9huZ">
+      <div class="fld" data-page-node-id="nWLt3rYrvtmzJp0AQZMpeg">
+        <label data-page-node-id="KWl545Wya6ed9Hsxx49hzr">调用周期 (ms)</label>
+        <input id="g-period" type="number" value="10" data-page-node-id="ETTElGsnNDA2JSjDtYRq35">
+      </div>
+      <div class="fld" data-page-node-id="hZ7BEdZejpO3xd7XBXupBa">
+        <label data-page-node-id="pQmERpyt1O0WAZACVZtcea">每步变化 (%)</label>
+        <input id="g-step" type="number" value="2" data-page-node-id="zcynyoMUFzkZ5Nj0Va2N1v">
+      </div>
+      <div class="fld" data-page-node-id="U2nj5MG3pmbORV1DQGFofJ">
+        <label data-page-node-id="6df8LX4lUmepLOgJVz5AHb">看门狗超时 (ms)</label>
+        <input id="g-timeout" type="number" value="3000" data-page-node-id="OO2wivrgnpFSEI9epy1CYN">
+      </div>
+    </div>
+    <div class="calc-out" id="g-out" data-page-node-id="IUdFuOT6bns9ayH5ANSZ4R"></div>
+  </div>
+</section>
+
+<!-- ================= 8 ================= -->
+<section id="s8" data-page-node-id="jMg8gu9HWExbMC8ZVpkp0Y">
+  <h2 data-page-node-id="YPPCwFBjmT6Au6LBBXJ3VH">8 · 自测<span class="sub" data-page-node-id="QDEhqIo86w3LfxKG2J5yo6">点一下选项就知道对错</span></h2>
+
+  <div class="quiz" id="quiz" data-page-node-id="cV8AjzXyWyiOzRnUDSfzVP">
+
+    <div class="q-item" data-page-node-id="GixMhye2PmZAnXLpw0QKOo">
+      <div class="q-t" data-page-node-id="eaK0nhHeeAt7uVpEr9cB8L">1. 光敏信号为什么走 PA0（ADC1_IN0），而不是同样空闲的 PA2？</div>
+      <div class="opt" data-ok="0" data-page-node-id="p8qlcY33C634JjXoVWVCfG">因为 PA0 的采样精度比 PA2 高</div>
+      <div class="opt" data-ok="1" data-page-node-id="xNPijw0j8owqCEMJGTmAIM">因为 PA0 与已占用资源不冲突，且通道号与引脚序号对齐、无需重映射</div>
+      <div class="opt" data-ok="0" data-page-node-id="GqSJxzTl9AjcTgz85jlwil">因为 PA2 被串口占用了</div>
+      <div class="expl" data-page-node-id="NSHTHTNl769EsqFwOoMHWq">ADC 各通道的电气特性完全相同，不存在"精度更高"的说法。选 PA0 的理由是<b data-page-node-id="hiKLvS78Bz6GiJrWHb9RQn">约束最少</b>：PA1 已给 PWM，PA9/10 给了串口，PA13/14 是调试口；而 PA0 恰好就是通道 0，配置时不容易写错。PA2 其实是空闲的（它的"被占"是 TIM2_CH3 的复用，本项目没用）。</div>
+    </div>
+
+    <div class="q-item" data-page-node-id="qqb4cXVWNyBYiostvFyZti">
+      <div class="q-t" data-page-node-id="F7CowjfE4b76aFm0GePTQE">2. 采样时间从 1.5 周期改成 55.5 周期，主要解决了什么问题？</div>
+      <div class="opt" data-ok="1" data-page-node-id="ZiMJAdvl15S3lFxxPQdXS5">光敏分压电路输出阻抗较高，需要更长的时间给采样电容建立电压</div>
+      <div class="opt" data-ok="0" data-page-node-id="AduSFTyJeXYTtZf55SlCm0">提高 ADC 的分辨率，从 10 位变成 12 位</div>
+      <div class="opt" data-ok="0" data-page-node-id="FEOAW7TkdKErq7qEjB4VpH">降低 ADC 时钟，避免超过 14 MHz 上限</div>
+      <div class="expl" data-page-node-id="5c1hPHttAEiUMNyIDpxETe">分辨率由硬件固定为 12 位，跟采样时间无关；ADC 时钟是由 <code data-page-node-id="VgGLCmIGTvk3w32LkoFZpA">RCC_ADCCLKConfig</code> 决定的，也是另一件事。<b data-page-node-id="TI6qKx7FsR0kgFce3sa0SH">采样时间只影响"采样电容能不能被充满"</b> —— 源阻抗高就必须给足时间，否则读数偏低且不稳定。</div>
+    </div>
+
+    <div class="q-item" data-page-node-id="Td6Ebk2pADvcezYyTWE9Zq">
+      <div class="q-t" data-page-node-id="G7WNc8dFCFqA7HeNY9Ug7a">3. 为什么 ADC1 必须用 DMA1_Channel1？</div>
+      <div class="opt" data-ok="0" data-page-node-id="is5bM87LljpoNor7c0nBDw">因为通道 1 优先级最高，采样最快</div>
+      <div class="opt" data-ok="0" data-page-node-id="BNwKbwmhz1JzCRR8Rnz4tF">因为其他通道都被占用了</div>
+      <div class="opt" data-ok="1" data-page-node-id="wkW6btiCF4AaMJBABL4KJz">因为 F1 系列里外设与 DMA 通道的对应是硬件固定的，ADC1 只能接通道 1</div>
+      <div class="expl" data-page-node-id="P70ZIS4HVqriGsEKMBJRXU">这不是"选择"，是<b data-page-node-id="J9NZ80y0kmsgzpsb8N8PGB">查表得到</b>的硬连线。参考手册的 DMA 请求映射表规定：ADC1 → DMA1_CH1，ADC2 → DMA1_CH2，ADC3 → DMA1_CH5。项目里所有 DMA 通道都没被占用，唯一的原因就是硬件决定了只能这么接。</div>
+    </div>
+
+    <div class="q-item" data-page-node-id="v65WKY202f6beEdVSc03OO">
+      <div class="q-t" data-page-node-id="esHOjRwmaADV8pF20jZwii">4. 系统节拍为什么用 TIM3 而不是更省事的 SysTick？</div>
+      <div class="opt" data-ok="0" data-page-node-id="DqygL2U8UUlLmZQQvWFeph">SysTick 是 24 位，计不到 1 ms</div>
+      <div class="opt" data-ok="1" data-page-node-id="CNJ3Hujv9ZUpkMqc2pDJHQ">SysTick 已经被标准库的延时函数占用，共用会导致时延基准被反复改写，且它的中断优先级最低</div>
+      <div class="opt" data-ok="0" data-page-node-id="aDoGXakfnsPFHeU1QX3bYc">TIM3 的精度比 SysTick 高得多</div>
+      <div class="expl" data-page-node-id="U2ExJHoWmW7nC3LnOUL8mo">SysTick 做 1 ms 中断完全没问题（24 位绰绰有余）。问题在<b data-page-node-id="Qdo7dYYHN1i6v1nP7SCNhM">资源归属</b>：<code data-page-node-id="F2d8lEUAp2HTCguw5flxjd">Delay.c</code> 已经在用它了，两个模块抢同一个内核定时器，谁后初始化谁说了算。用空闲的 TIM3 做节拍，两边彻底隔离。</div>
+    </div>
+
+    <div class="q-item" data-page-node-id="546IqQTS0sUOBnDNEzqOzY">
+      <div class="q-t" data-page-node-id="JI7S8iEN71SuUNAzAC4btk">5. 原工程"灯一直亮、调不暗"的真正原因是什么？</div>
+      <div class="opt" data-ok="0" data-page-node-id="FwsSrCmoNKDSfsHwwK8vEH">人眼视觉暂留，1 kHz 太快看不出来</div>
+      <div class="opt" data-ok="0" data-page-node-id="H0YWwuoohctKQJGibtREQP">LED 的限流电阻选小了</div>
+      <div class="opt" data-ok="1" data-page-node-id="99FvzvsxUFa4gj7cABFOaM">LED 模块把 PA1/PA2 配成了普通推挽输出，覆盖掉定时器的复用功能，PA1 上根本没有 PWM 波形</div>
+      <div class="expl" data-page-node-id="Ws0Tqy5Vkc5PWHV7C0QiQ3">"视觉暂留"这个解释听起来专业，但它<b data-page-node-id="Qleh6mOh97HB7qiccZTH35">不指向任何一行可以修改的代码</b>，所以是错的。<code data-page-node-id="5qW2euKccObr6uPdyW2P6O">LED.c</code> 里的 <code data-page-node-id="ILoGf0AD43I1FCIOy8JCSX">GPIO_Mode_Out_PP</code> 与 <code data-page-node-id="MvfRWD7Pm3Km0JSh6jnsSy">PWM.c</code> 需要的 <code data-page-node-id="7Z4FF84AN7OnElW7Eubs7t">GPIO_Mode_AF_PP</code> 在同一个引脚上互斥 —— 这才是根因，改法是状态灯挪到 PC13。</div>
+    </div>
+
+    <div class="q-item" data-page-node-id="tuOEXloYPCXPROXbfGX6pw">
+      <div class="q-t" data-page-node-id="7y6qVYmofZMHapHW5D7O5d">6. 新克隆的工程一点下载就报 <code data-page-node-id="l4RYtveJVBkkwhkp1l4wqL">No ULINK2/ME Device found</code>，为什么？</div>
+      <div class="opt" data-ok="0" data-page-node-id="OD7nKhio90PsBIGhfjFY1K">ST-Link 驱动没装</div>
+      <div class="opt" data-ok="1" data-page-node-id="ewXZsdJ95zkNIL8Ou5jrXl">存放下载器设置的 <code data-page-node-id="4MIgneNWd0KDn9RyGqDlr4">.uvoptx</code> 属于本机配置、不在仓库里，Keil 重新生成时默认选了 ULINK2/ME</div>
+      <div class="opt" data-ok="0" data-page-node-id="FRToHXalEiNq8RGWNHUWnn">芯片坏了</div>
+      <div class="expl" data-page-node-id="D5HngqPZZGPe1jpZockv2U">判据很直接：能正常下载的原工程和报错的新工程，<code data-page-node-id="B5XusL35VezAhdVN0exwNj">uvoptx</code> 里只有下载器相关的三处不同（<code data-page-node-id="ucAiwXNkGGSZJ4BIGjjp5P">nTsel</code>、<code data-page-node-id="eZQwYOsmDUuFoPOa3vHs1V">pMon</code>、驱动参数条目）。如果是驱动没装，那"Debug 下拉框里根本不会出现 ST-Link Debugger 这一项"—— 但它是存在的。</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= 9 ================= -->
+<section id="s9" data-page-node-id="pcAVaxEPgSYx2ZUauDl5XV">
+  <h2 data-page-node-id="9AmuYC1nHYQEFUKBXLtORH">9 · 资源占用登记表<span class="sub" data-page-node-id="0RCor5POpRfC9HLT0UhcCC">新增任何模块前，先查这张表</span></h2>
+
+  <div class="tw" data-page-node-id="aX5yNRnxCqDCODvB0FSTuF">
+    <table data-page-node-id="DEIU3mC5S87iJFhbttrUWB">
+      <thead data-page-node-id="uIwLIU5UjfB2BUcIJi6MKN"><tr data-page-node-id="al7dXCjWdAFtbbUBJCsToj"><th data-page-node-id="AAleru2ZBpwar0CAezxJtk">资源</th><th data-page-node-id="eby6gBgYEaIstGy4PHWqYK">归属模块</th><th data-page-node-id="zGRCOvNYL1DaHx8pkSHEkM">用途</th><th data-page-node-id="V9hd1anzeCaomtIPi5HJvb">其他模块可否再用</th></tr></thead>
+      <tbody data-page-node-id="B2nDZpchrNUpsG8dVHg5nN">
+        <tr data-page-node-id="GSuPFLp028qlEKqs9oyD50"><td data-page-node-id="zwJVFigqSh7zJdtAMWmWCf"><code data-page-node-id="Eyq1pgO30YmQYOfqMnWRqe">TIM2</code></td><td data-page-node-id="0OrVl42Gphb2LqOFIyr77L"><code data-page-node-id="sSpOuCO6SbTI86q65ixLIH">System/PWM.c</code></td><td data-page-node-id="8uXr4LGDlVTN2jBq7jztzK">PWM 输出，1 kHz / 1000 级</td><td data-page-node-id="hPj1epomH9OTo7oxH2wJpA"><span class="pill p-keep" data-page-node-id="7aqRaYHEDPXCEemDD4RXyT">不可，独占</span></td></tr>
+        <tr data-page-node-id="W3CvMkjNhTCumntzv8LoRb"><td data-page-node-id="EasgzGYSQwMpfRUM7j6YDq"><code data-page-node-id="63jnKReulBpo9AOtNeRovM">TIM3</code></td><td data-page-node-id="1KEKOF5SpUOYZqTphCONMT"><code data-page-node-id="1NAAfcEBLWFmjD5dRAjYdc">System/Timer.c</code></td><td data-page-node-id="6eIHOIUcINpeb2ixXUBDJv">1 ms 系统节拍</td><td data-page-node-id="eIJUOOrHnoZMJjsBV8Ou2X"><span class="pill p-keep" data-page-node-id="HTwL1NrMDGr6HgLF6KH0Zb">不可，独占</span></td></tr>
+        <tr data-page-node-id="1uHeFvIiE9KuQcBbzLYnfM"><td data-page-node-id="vW2Xg8TX9GWwZS6acMqTri"><code data-page-node-id="6Cke51DOz4pkY9mx1kLsrF">TIM4</code></td><td data-page-node-id="uChlSLTYMskQ4wd6xFJnJq">—</td><td data-page-node-id="iuOXkCn9lsIXGYHeJR0AGX">空闲（PB6/PB7 已被 OLED 占用）</td><td data-page-node-id="VrU7Q3T3qyIjR90CUCubUJ"><span class="pill p-use" data-page-node-id="YXFgZtrQLOBUvTQlX6VDMK">可用</span></td></tr>
+        <tr data-page-node-id="EdXoDwsbui2TGeF8pPCoUu"><td data-page-node-id="JUGRC3zYxOiVVnX72kclsa"><code data-page-node-id="sACmjP73W7nQf46KfKUDyl">ADC1</code></td><td data-page-node-id="t8YO39HUQ5JpPSCLYzn95z"><code data-page-node-id="4BsZMEYeZGxPckEAZDlUZD">System/AD.c</code></td><td data-page-node-id="aUB2JDhoMe3Gk4CDFCEF0R">光敏采样</td><td data-page-node-id="dDI96Nd7P2GEDTY6LHOyNp"><span class="pill p-keep" data-page-node-id="UhX9Y5yH9qIiD0rCg545Ec">不可，独占</span></td></tr>
+        <tr data-page-node-id="GpWVYdo3TZJIOsmeMmXjoy"><td data-page-node-id="RJJJh6TYzwV6sLxzQc7ZRN"><code data-page-node-id="X5u64TI7sOUDcXfC8rsU0e">DMA1_CH1</code></td><td data-page-node-id="UzeFTaHPcrC5ucvGJcoP1q"><code data-page-node-id="HEmpxK7sUw7h1c8m3nXx7p">System/DMA.c</code></td><td data-page-node-id="ryuVsfRaqbgziYUQpvizjj">ADC1 数据搬运</td><td data-page-node-id="eW7jtXbtmT9bDP1GVFxqKW"><span class="pill p-keep" data-page-node-id="ivhHAk3irJaxMFCrY9RXjQ">硬件固定绑定</span></td></tr>
+        <tr data-page-node-id="ICxsGBUqiP8zrCaXD4ldiA"><td data-page-node-id="CpQGjdmtsnvBC3wM6LamLT"><code data-page-node-id="2c2OGfahrCp10zKNdZDgCL">USART1</code></td><td data-page-node-id="2PZZz1SpG390ZVJ393gQBJ"><code data-page-node-id="5E2pPwSDZcw33HvEy1QzcD">Hardware/Serial.c</code></td><td data-page-node-id="Fv6T3kpEGMZGH6VwdSvlMx">PC 通信，115200</td><td data-page-node-id="1T0Bi6AOQWg3MiteHpBPGu"><span class="pill p-keep" data-page-node-id="3oBJkspV5UFDU9TTbU2yJo">不可，独占</span></td></tr>
+        <tr data-page-node-id="hGzacooyZDEt9P2FCJMsHa"><td data-page-node-id="KDvyyYtzO9ne4SCqWf9fIX"><code data-page-node-id="PSngLHX2gHzwswMQrTnKZn">SysTick</code></td><td data-page-node-id="ZbF85cScnaBrxA7uwFQyeJ"><code data-page-node-id="uk4zL8A8o34TaXc67pw10i">System/Delay.c</code></td><td data-page-node-id="PhVTFspn9gogDqiUG4K2FW">微秒/毫秒延时</td><td data-page-node-id="n1zE2wKdfwT2EqfageKSnw"><span class="pill p-keep" data-page-node-id="tKc8mSDYkhL5of2fUG3wdh">不可，独占</span></td></tr>
+        <tr data-page-node-id="i0TlCfd8LYsCsqAijQlw51"><td data-page-node-id="cquNl9vRufWejMkOb0j5BV"><code data-page-node-id="oD27mHshWqSG5tuK6ICh69">PA0</code></td><td data-page-node-id="vkI4Ui5I3tdniGmCXje0xI"><code data-page-node-id="a9p6GX5CH0OjlOSqqa8cBO">AD.c</code></td><td data-page-node-id="1C4ETiuZ3FGArHjT6e6JR9">ADC1_IN0，模拟输入</td><td data-page-node-id="UIiJTG3iytig8YlzzCWbDu"><span class="pill p-keep" data-page-node-id="Vwq749NH70QvCrgrn5APXa">不可</span></td></tr>
+        <tr data-page-node-id="C0izkuszlACp07hHl7YzPx"><td data-page-node-id="t95Ds0Ff9r8NLqJZYTquch"><code data-page-node-id="UAXDBDoUWZIiCZn6VHZ4Op">PA1</code></td><td data-page-node-id="sje4Sk5Y0Scar268biw5pS"><code data-page-node-id="NWKvxpTiOPXsx5ULQjaEjG">PWM.c</code></td><td data-page-node-id="vWZD83Wp3QyAmj1SKALWnY">TIM2_CH2，复用推挽</td><td data-page-node-id="gVg0SHuHtSVfPfrXa8hODu"><span class="pill p-keep" data-page-node-id="M2ObIDz00Ot5rnhhsAWPCq">不可</span></td></tr>
+        <tr data-page-node-id="qSusvqvevzHRYxHolEFHTt"><td data-page-node-id="PNLt3P7YpDzJpiD5TXhROr"><code data-page-node-id="BuvEuyyJNWCgnHFHjYNpbg">PA9 / PA10</code></td><td data-page-node-id="QZVEjhQzVqiudGhBulK7Gf"><code data-page-node-id="VhF7VOwvmVeWohjknOGysr">Serial.c</code></td><td data-page-node-id="g8pE8OCzdYSXs113c7HcZr">USART1 TX / RX</td><td data-page-node-id="KPqaJGjCfLKVw6TSgDV8B2"><span class="pill p-keep" data-page-node-id="P7AM5yfMdex1Y8DR3uM2Tj">不可</span></td></tr>
+        <tr data-page-node-id="002AHtLH2TcEmsWWViWJ9e"><td data-page-node-id="YvleojeCWu7kf1x5fTTjpS"><code data-page-node-id="9k6NrTgjvcfROIHwCbGxQY">PA13 / PA14</code></td><td data-page-node-id="7a3RVmkqC6OGd7D7ya0h9d">调试口</td><td data-page-node-id="7GOHj72BLJ4ritY8VbevJT">SWDIO / SWCLK</td><td data-page-node-id="GDYbQN8um0IGJG6LCGP14y"><span class="pill p-keep" data-page-node-id="QcmwLSg3JYbhOlusjcyn4m">永不使用</span></td></tr>
+        <tr data-page-node-id="ikbgZ2svFRBfvtkuaqns0w"><td data-page-node-id="wqvCIXfInZqxv96esIO9f1"><code data-page-node-id="k4G6R12oixJHFARIPD2r87">PB6 / PB7</code></td><td data-page-node-id="BdkmyCDBO36L4C72oYPmqj"><code data-page-node-id="6BnZQ0IqxVMZ52EMZXgXj3">OLED.c</code></td><td data-page-node-id="tS7NQNHaJ7pmDSh0tyzjnX">软件 I2C，开漏</td><td data-page-node-id="v5fYx4FDsJA6BjgowUYr1O"><span class="pill p-keep" data-page-node-id="zrfnq7NlCSTZxFt7t404Vt">不可</span></td></tr>
+        <tr data-page-node-id="etC9XEZ8tOTWW14jZzs6Wx"><td data-page-node-id="fYQA6RQljVM0l5aJkIfEio"><code data-page-node-id="cd2UFvLwBfmNqiFwKXBpBA">PB1 / PB11</code></td><td data-page-node-id="kYTqqiG4CI26ZFPArK5xAk"><code data-page-node-id="GxdYotpNdjB7N9kMCXKh3j">Key.c</code></td><td data-page-node-id="S5nlPa0aZoU9ohqexIK3Mt">按键（已配未启用）</td><td data-page-node-id="OQIoyQEnBLXZ7UcmOT7lMz"><span class="pill p-res" data-page-node-id="Go5Cv7MZ60zX7IPNNhEwI0">预留</span></td></tr>
+        <tr data-page-node-id="10mBAvCBRJFEjuRJboWSFK"><td data-page-node-id="nmkfcYTMVaFtCQs2pjxKde"><code data-page-node-id="D3aV6s6lAW6TJhkBHHg7sY">PB13</code></td><td data-page-node-id="iXm05iJobR1UHaSXEwQCfz"><code data-page-node-id="BVUTo9VERqqrCx5g5SYZJd">LightSensor.c</code></td><td data-page-node-id="95kCZxwhSOvSrQX4vDTQ3h">光敏模块 DO（读值未使用）</td><td data-page-node-id="ncdpXsCfz4z3DtK2VLFgFc"><span class="pill p-res" data-page-node-id="JaE2EeX9ktW6FsIEnXwfPI">可不接</span></td></tr>
+        <tr data-page-node-id="A8PF55OxOpDP0HwB95keFR"><td data-page-node-id="Fh7dZCcNQ1m5TZPmOk4zDg"><code data-page-node-id="7JK37NzLCrkRIevfyLACJP">PC13</code></td><td data-page-node-id="B4QZSCWqmAanr1eSBVl6WJ"><code data-page-node-id="RlgQUDd4LkTG8ToPHVxaSm">LED.c</code></td><td data-page-node-id="UgiDI4GEpLasRYEHB9Z1hG">板载 LED，心跳</td><td data-page-node-id="XG0CgG2fEVIxUJ2YCmX3RN"><span class="pill p-use" data-page-node-id="CoXcPUbgXc74m44lPbvOgv">板上已焊</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note ok" data-page-node-id="Ly8zfntXYDTCqUv3r6HvVQ">
+    <span class="t" data-page-node-id="j2yrfnMnUbJY0GMyCx3UA4">这张表该怎么用</span>
+    想加新功能时，先在"可用/空闲"的格里挑，挑完<strong data-page-node-id="yOz2oX156vQaBwlAXDv5qD">立刻把这一行填上归属模块</strong>。如果发现想用的资源已经在"不可"行里，那就不是"改一行代码"的事，而是要重新做一次取舍 —— <strong data-page-node-id="iSYatpKMNtymxnTyhWQExt">尽早发现总比编译通过后运行时才发现好</strong>。
+  </div>
+
+  <h3 data-page-node-id="0mlo74RO8T7YCC6Pr9mpId">还没用上的资源（给未来留的口子）</h3>
+  <div class="grid3" data-page-node-id="MdFVH2qSpeBvEuieAVRoyF">
+    <div class="card" data-page-node-id="jY0FvdvoFq6dGfH4CuqiE7">
+      <h4 style="margin-top:0;" data-page-node-id="M9e18UHztVAqJ7NoOg8KoI">通信类</h4>
+      <p style="font-size:13.6px;margin:0;" data-page-node-id="oGZvEc2o4XhXlDJQfpskTM">SPI1（PA5~PA7）全空 → 可加 SPI Flash / TFT<br data-page-node-id="DaaBcLSWp4I185G7QXgzGM">
+      I2C1（PB8/PB9 或重映射）→ 可加传感器<br data-page-node-id="GBv5jMJIm3Wvrn2aGAZ6vz">
+      USART2 / USART3 → 可加蓝牙、WiFi 模块</p>
+    </div>
+    <div class="card" data-page-node-id="5qYm24L6TfedqYeuECTb18">
+      <h4 style="margin-top:0;" data-page-node-id="SwCpkC5CsFUoMLInKSlzoB">模拟类</h4>
+      <p style="font-size:13.6px;margin:0;" data-page-node-id="yO8HoJFjtRNAe6dxuvbR05">ADC1_IN2~IN7（PA2~PA7）、IN10~IN15（PC0~PC5）→ 可加电位器、NTC 温度<br data-page-node-id="hqSuqMpYEsHGaGdC2CMkOB">
+      内部通道 IN16（温度）、IN17（Vrefint）→ 可做自检</p>
+    </div>
+    <div class="card" data-page-node-id="FFGXrr7ojoeFSwbnVAsWGQ">
+      <h4 style="margin-top:0;" data-page-node-id="WF4VDIBqREdVsfJ9hRQzhf">定时/输出类</h4>
+      <p style="font-size:13.6px;margin:0;" data-page-node-id="yjWVAXALAHM7WkfuEJxyGC">TIM2_CH3/CH4（PA2/PA3）、TIM4 全部通道 → 可加第二路 PWM<br data-page-node-id="rIQwfFwiGxNZNDoj3ZZeTk">
+      TIM3_CH3/CH4（PB0/PB1）→ 注意 PB1 已给按键</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer data-page-node-id="oVhCZW2Y6BUgHROEc23OI3">
+  STM32 光控灯 · 实现路线与决策复盘　|　配套源码：<code data-page-node-id="ofzuB49REHjAz69vxrSNTl">stm32-light-control-lamp</code>　|　
+  引脚与参数以 <code data-page-node-id="iiipZxymYQCCTFIIgsiYDN">docs/hardware.md</code> 为准，本页为教学说明
+</footer>
+
+<script>
+/* ---------- 导航高亮 ---------- */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc-in a'));
+  var secs = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function onScroll() {
+    var y = window.scrollY + 90, cur = 0;
+    for (var i = 0; i < secs.length; i++) {
+      if (secs[i] && secs[i].offsetTop <= y) { cur = i; }
+    }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === cur); });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
+/* ---------- PWM 计算器 ---------- */
+(function () {
+  var clk = document.getElementById('p-clk'),
+      psc = document.getElementById('p-psc'),
+      arr = document.getElementById('p-arr'),
+      out = document.getElementById('p-out');
+
+  function fmt(x, d) {
+    if (!isFinite(x)) { return '—'; }
+    return x.toFixed(d === undefined ? 3 : d);
+  }
+
+  function calc() {
+    var f = parseFloat(clk.value) || 0,
+        p = parseFloat(psc.value) || 0,
+        a = parseFloat(arr.value) || 0;
+
+    var div = p + 1;                 // 实际分频系数
+    var cnt = f * 1e6 / div;         // 计数器时钟 Hz
+    var steps = a + 1;               // 每周期计数个数 = 分辨率
+    var freq = cnt / steps;          // PWM 频率
+
+    var warn = '';
+    if (freq > 0 && freq < 200) {
+      warn = '\n<span class="dim">⚠ 低于 200 Hz，人眼会看到闪烁</span>';
+    } else if (freq >= 200 && freq < 1000) {
+      warn = '\n<span class="dim">△ 勉强不闪，但没理由不用更高频率</span>';
+    } else if (freq >= 20000) {
+      warn = '\n<span class="dim">△ 频率很高，但这个场景不需要（白白牺牲什么都没省到）</span>';
+    }
+    if (steps > 65535) {
+      warn = '\n<span class="dim">⚠ ARR 超过 16 位上限 65535，无效</span>';
+    }
+    if (steps < 20) {
+      warn += '\n<span class="dim">△ 分辨率太低（&lt;20 级），暗部会一跳一跳</span>';
+    }
+
+    out.innerHTML =
+      '计数器时钟 = ' + fmt(f, 1) + ' MHz ÷ ' + div + '  <span class="dim">(PSC+1)</span> = <b>' + fmt(cnt / 1e6, 4) + ' MHz</b>\n' +
+      '分辨率级数 = ARR + 1 = <b>' + steps + ' 级</b>\n' +
+      'PWM 频率   = ' + fmt(cnt / 1e6, 4) + ' MHz ÷ ' + steps + ' = <b>' + fmt(freq, 1) + ' Hz</b>\n' +
+      '占空比步进 = 1 / ' + steps + ' = <b>' + fmt(100 / steps, 4) + ' %</b>' + warn;
+  }
+
+  [clk, psc, arr].forEach(function (el) { el.addEventListener('input', calc); });
+  calc();
+})();
+
+/* ---------- ADC 计算器 ---------- */
+(function () {
+  var clk = document.getElementById('a-clk'),
+      div = document.getElementById('a-div'),
+      smp = document.getElementById('a-smp'),
+      out = document.getElementById('a-out');
+
+  function calc() {
+    var f = parseFloat(clk.value) || 0,
+        d = parseFloat(div.value),
+        s = parseFloat(smp.value);
+
+    var adcclk = f / d;                    // MHz
+    var total = s + 12.5;                  // 采样 + 逐次逼近 12.5 个周期
+    var t = total / adcclk;                // µs
+    var rate = 1e6 / t;                    // 次/秒
+
+    var warn = '';
+    if (adcclk > 14) {
+      warn = '\n<span class="dim">⚠ ADCCLK 超过 14 MHz 硬上限，精度不受保证，禁止使用</span>';
+    } else if (adcclk > 13) {
+      warn = '\n<span class="dim">△ 已经很贴近 14 MHz 上限，一般别用这么满</span>';
+    }
+
+    var note = '';
+    if (adcclk > 14) {
+      note = ' → <b>不合法</b>';
+    } else if (s >= 41.5) {
+      note = ' → 高阻抗信号源推荐';
+    } else if (s <= 7.5) {
+      note = ' → 只适合低阻抗信号源';
+    }
+
+    out.innerHTML =
+      'ADCCLK      = PCLK2 ÷ ' + d + ' = <b>' + adcclk.toFixed(2) + ' MHz</b>' + note + '\n' +
+      '单次转换周期 = 采样 ' + s + ' + 逐次逼近 12.5 = <b>' + total.toFixed(1) + ' 周期</b>\n' +
+      '单次转换时间 = ' + total.toFixed(1) + ' ÷ ' + adcclk.toFixed(2) + ' MHz = <b>' + t.toFixed(3) + ' µs</b>\n' +
+      '理论采样速率 = 1 ÷ ' + t.toFixed(3) + ' µs = <b>' + Math.round(rate).toLocaleString() + ' 次/秒</b>\n' +
+      '\n<span class="dim">本项目 200 ms 上报一次、8 次取平均 → 实际只需要约 40 次/秒，' +
+      '所以把时间全花在精度上是划算的。</span>' + warn;
+  }
+
+  [clk, div, smp].forEach(function (el) {
+    el.addEventListener('input', calc);
+    el.addEventListener('change', calc);
+  });
+  calc();
+})();
+
+/* ---------- 渐变 / 超时计算器 ---------- */
+(function () {
+  var period = document.getElementById('g-period'),
+      step = document.getElementById('g-step'),
+      timeout = document.getElementById('g-timeout'),
+      out = document.getElementById('g-out');
+
+  function calc() {
+    var p = parseFloat(period.value) || 0,
+        s = parseFloat(step.value) || 0,
+        to = parseFloat(timeout.value) || 0;
+
+    var perStep = (s > 0) ? (p / s) : Infinity;   // 每变化 1% 需要的时间
+    var full = perStep * 100;                     // 0 -> 100 全程
+    var calls = (p > 0) ? (1000 / p) : 0;         // 每秒调用次数
+
+    var warn = '';
+    if (full > 3000) {
+      warn = '\n<span class="dim">⚠ 全程超过 3 秒，渐变会显得迟钝</span>';
+    } else if (full < 300) {
+      warn = '\n<span class="dim">△ 快到接近跳变，平滑阻尼感会不明显</span>';
+    }
+    if (calls > 200) {
+      warn += '\n<span class="dim">△ 每秒调用 ' + Math.round(calls) + ' 次，对主循环负担偏大（虽然不阻塞）</span>';
+    }
+
+    out.innerHTML =
+      '每步耗时 = ' + p + ' ms\n' +
+      '每秒调用 = 1000 ÷ ' + p + ' = <b>' + Math.round(calls) + ' 次</b>\n' +
+      '每变化 1% = ' + p + ' ÷ ' + s + ' = <b>' + perStep.toFixed(1) + ' ms</b>\n' +
+      '0 → 100% 全程 ≈ <b>' + (isFinite(full) ? (full / 1000).toFixed(2) + ' 秒' : '永不完成（步长为 0）') + '</b>' + warn +
+      '\n\n看门狗超时 = <b>' + to + ' ms</b>' +
+      '\n<span class="dim">判据：超时应该明显大于正常指令间隔，又不至于让失控状态持续太久。' +
+      '\n本项目 PC 端是人工发指令，3 秒足够；若是对接自动程序，可缩短到 500 ms 左右。</span>';
+  }
+
+  [period, step, timeout].forEach(function (el) { el.addEventListener('input', calc); });
+  calc();
+})();
+
+/* ---------- 测验 ---------- */
+(function () {
+  var items = document.querySelectorAll('#quiz .q-item');
+  Array.prototype.forEach.call(items, function (item) {
+    var opts = item.querySelectorAll('.opt');
+    var expl = item.querySelector('.expl');
+    Array.prototype.forEach.call(opts, function (opt) {
+      opt.addEventListener('click', function () {
+        if (item.dataset.done === '1') { return; }
+        item.dataset.done = '1';
+        var ok = opt.dataset.ok === '1';
+        Array.prototype.forEach.call(opts, function (o) {
+          if (o.dataset.ok === '1') { o.classList.add('right'); }
+        });
+        if (!ok) { opt.classList.add('wrong'); }
+        if (expl) { expl.classList.add('show'); }
+      });
+    });
+  });
+})();
+
+/* ---------- 决策卡默认展开状态提示（无 JS 时也全展开） ---------- */
+document.documentElement.classList.add('js-ready');
+</script>
+
+</body>
+</html>
