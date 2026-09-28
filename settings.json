@@ -1,0 +1,38 @@
+{
+    // ===================================================================
+    //  Keil (MDK-ARM) STM32 工程配置
+    //  编译：Keil Assistant -> Keil MDK (ARMCC)
+    //  补全：cpptools IntelliSense
+    // ===================================================================
+
+    // 用 cpptools 补全（Keil 工程没有 CMake 编译数据库，不适合 clangd）
+    "C_Cpp.intelliSenseEngine": "default",
+
+    // 关闭 STM32Cube clangd 扩展的冲突检测轮询（该扩展全局激活，会误报）
+    "stm32cube-ide-clangd.detectExtensionConflicts": false,
+
+    // Keil 工程不需要 ST 扩展去同步 pdsc 仓库，减少启动开销
+    "stm32cube-ide-core.synchronizePdscRepositoriesOnStartup": false,
+
+    // ---- 文件关联 ----
+    "files.associations": {
+        "*.h": "c",
+        "*.uvprojx": "xml",
+        "*.uvproj": "xml",
+        "*.s": "asm"
+    },
+
+    // ---- 排除 Keil 编译中间产物，避免拖慢索引 ----
+    "search.exclude": {
+        "**/Objects": true,
+        "**/Listings": true,
+        "**/*.uvguix.*": true
+    },
+    "files.watcherExclude": {
+        "**/Objects/**": true,
+        "**/Listings/**": true
+    },
+
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true
+}
